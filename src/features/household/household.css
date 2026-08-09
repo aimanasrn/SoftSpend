@@ -1,0 +1,134 @@
+.household-empty {
+  max-width: 620px;
+  margin: 34px auto 0;
+  padding: 56px 40px;
+  text-align: center;
+}
+
+.household-empty-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  border-radius: 18px;
+  background: #edeaff;
+  color: #7569de;
+}
+
+.household-empty h2 {
+  font: 700 22px Manrope;
+  letter-spacing: -0.05em;
+}
+
+.household-empty p {
+  max-width: 440px;
+  margin: 10px auto 24px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.household-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -12px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid #d9f0e3;
+  border-radius: 10px;
+  background: #effaf4;
+  color: #4f9b74;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.household-notice button {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  color: inherit;
+}
+
+.household-invite-banner {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: -12px 0 20px;
+  padding: 13px 15px;
+  border: 1px solid #e6defa;
+  border-radius: 12px;
+  background: #f5f2ff;
+  color: #7569de;
+}
+
+.household-invite-banner > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.household-invite-banner strong {
+  color: #5f55b4;
+  font: 700 12px Manrope;
+}
+
+.household-invite-banner span {
+  color: #7d75bd;
+  font-size: 10px;
+}
+
+.pending-member .member-avatar {
+  background: #fff5df;
+  color: #b59045;
+}
+
+.invite-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0 22px;
+  padding: 13px;
+  border: 1px solid #d9f0e3;
+  border-radius: 11px;
+  background: #effaf4;
+  color: #4f9b74;
+}
+
+.invite-success > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invite-success strong {
+  color: #3d7e5d;
+  font: 700 12px Manrope;
+}
+
+.invite-success span {
+  color: #5d9877;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+  .household-empty {
+    padding: 42px 22px;
+  }
+
+  .household-notice {
+    margin-top: 0;
+  }
+
+  .household-invite-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-top: 0;
+  }
+
+  .household-invite-banner .primary-button {
+    margin-left: 29px;
+  }
+}

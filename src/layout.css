@@ -1,0 +1,112 @@
+/* Keep desktop navigation visible while the main workspace scrolls. */
+@media (min-width: 801px) {
+  .app-shell {
+    padding-left: 236px;
+  }
+
+  .app-shell.sidebar-collapsed {
+    padding-left: 75px;
+  }
+
+  .app-shell > .sidebar {
+    position: fixed;
+    z-index: 15;
+    inset: 0 auto 0 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+.side-signout {
+  color: #b86e84 !important;
+}
+
+.side-signout:hover {
+  color: #a4536d !important;
+  background: #fff2f4 !important;
+}
+
+.profile-live-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  max-width: 665px;
+  margin: 0 0 14px;
+  padding: 15px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.profile-live-card > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.profile-live-card .section-eyebrow {
+  margin-bottom: 1px;
+}
+
+.profile-live-card strong {
+  font: 700 13px Manrope;
+}
+
+.profile-live-card span:last-child {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.profile-aware-settings .settings-panel .settings-section:first-child {
+  display: none;
+}
+
+.data-empty {
+  padding: 48px 22px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.data-error {
+  margin: 0 0 16px;
+  padding: 11px 13px;
+  border: 1px solid #f3d9df;
+  border-radius: 10px;
+  background: #fff2f4;
+  color: #b86e84;
+  font-size: 11px;
+}
+
+.live-data-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #e4f6ec;
+  color: #5da480;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.live-data-badge.large {
+  padding: 9px 11px;
+  font-size: 10px;
+}
+
+.dashboard-data-loading {
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 800px) {
+  .profile-live-card {
+    max-width: none;
+  }
+}
