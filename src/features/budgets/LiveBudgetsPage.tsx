@@ -9,6 +9,17 @@ import { ConfirmDeleteDialog } from '../shared/LivePagePrimitives'
 import { loadCurrentHousehold } from '../../lib/household'
 import { VisibilityToggle } from '../../components/data/VisibilityToggle'
 
+const DEFAULT_BUDGET_CATEGORIES = [
+  'Food & Dining',
+  'Transportation',
+  'Shopping',
+  'Bills & Utilities',
+  'Housing',
+  'Subscriptions',
+  'Health & Wellness',
+  'Other expense',
+]
+
 export function LiveBudgetsPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,23 +34,26 @@ export function LiveBudgetsPage() {
     const [{ data, error: e }, { data: txs }] = await Promise.all([
       supabase
         .from('budgets')
-        .select('id,name,budget_amount,month,year,category_id,household_id,visibility,category:categories(name)')
+        .select('id,name,budget_amount,month,year,category_id,household_id,visibility,category:categories(id,name)')
         .order('year', { ascending: false })
         .order('month', { ascending: false }),
-      supabase.from('transactions').select('category_id,amount,type'),
+      supabase.from('transactions').select('budget_id,amount,type,transaction_date'),
     ])
     if (e) setError(e.message)
     const spent = (txs || [])
       .filter((x) => x.type === 'expense')
       .reduce((map, x) => {
-        map[x.category_id] = (map[x.category_id] || 0) + Number(x.amount || 0)
+        const date = new Date(`${x.transaction_date}T00:00:00`)
+        if (!x.budget_id) return map
+        const key = `${x.budget_id}:${date.getFullYear()}:${date.getMonth() + 1}`
+        map[key] = (map[key] || 0) + Number(x.amount || 0)
         return map
       }, {})
     setRows(
       (data || []).map((x) => ({
         ...x,
         amount: Number(x.budget_amount || 0),
-        spent: Number(spent[x.category_id] || 0),
+        spent: Number(spent[`${x.id}:${x.year}:${x.month}`] || 0),
         category: x.category?.name || x.name,
       })),
     )
@@ -103,7 +117,7 @@ export function LiveBudgetsPage() {
                 <div>
                   <strong>{row.name}</strong>
                   <span>
-                    {money(row.spent)} of {money(row.amount)}
+                    {row.category} · {money(row.spent)} of {money(row.amount)}
                   </span>
                 </div>
               </div>
@@ -167,16 +181,45 @@ export function LiveBudgetsPage() {
 function BudgetModal({ onClose, onSaved, initial }: { onClose: () => void; onSaved: () => void; initial?: any }) {
   const [name, setName] = useState(initial?.name || '')
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '')
+  const [categoryName, setCategoryName] = useState(initial?.category?.name || '')
+  const [categoryId, setCategoryId] = useState(initial?.category_id || '')
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_BUDGET_CATEGORIES.map((name) => ({ id: '', name })))
   const [visibility, setVisibility] = useState<'shared' | 'personal'>(initial?.visibility || 'personal')
   const [householdId, setHouseholdId] = useState(initial?.household_id || '')
   const [error, setError] = useState('')
   useEffect(() => {
     loadCurrentHousehold().then(({ household }) => setHouseholdId(household?.id || ''))
   }, [])
+  useEffect(() => {
+    let active = true
+    supabase
+      .from('categories')
+      .select('id,name')
+      .eq('type', 'expense')
+      .order('name')
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        const savedOptions = queryError ? [] : data || []
+        const savedNames = new Set(savedOptions.map((option) => option.name))
+        const combinedOptions = [
+          ...savedOptions,
+          ...DEFAULT_BUDGET_CATEGORIES.filter((name) => !savedNames.has(name)).map((name) => ({ id: '', name })),
+        ]
+        setCategoryOptions(combinedOptions)
+        const selected = combinedOptions.find(
+          (option) => option.id === initial?.category_id || option.name === initial?.category?.name,
+        )
+        setCategoryName(selected?.name || combinedOptions[0]?.name || '')
+        setCategoryId(selected?.id || '')
+      })
+    return () => {
+      active = false
+    }
+  }, [initial])
   const save = async () => {
     const value = Number(amount)
-    if (!name.trim() || !value) {
-      setError('Enter a budget name and amount.')
+    if (!name.trim() || !value || !categoryName) {
+      setError('Enter a budget name, category, and amount.')
       return
     }
     const {
@@ -190,10 +233,39 @@ function BudgetModal({ onClose, onSaved, initial }: { onClose: () => void; onSav
       setError('Create a household first from the Household page before sharing this budget.')
       return
     }
+    let selectedCategoryId = categoryId
+    if (!selectedCategoryId) {
+      const { data: existingCategory, error: lookupError } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', categoryName)
+        .eq('type', 'expense')
+        .limit(1)
+        .maybeSingle()
+      if (lookupError) {
+        setError(lookupError.message)
+        return
+      }
+      if (existingCategory?.id) selectedCategoryId = existingCategory.id
+      else {
+        const { data: createdCategory, error: createError } = await supabase
+          .from('categories')
+          .insert({ user_id: user.id, name: categoryName, type: 'expense', is_default: false })
+          .select('id')
+          .single()
+        if (createError) {
+          setError(createError.message)
+          return
+        }
+        selectedCategoryId = createdCategory.id
+      }
+    }
     const now = new Date()
     const payload = {
       name: name.trim(),
       budget_amount: value,
+      category_id: selectedCategoryId,
       visibility,
       household_id: visibility === 'shared' ? householdId : null,
     }
@@ -211,6 +283,20 @@ function BudgetModal({ onClose, onSaved, initial }: { onClose: () => void; onSav
   }
   return (
     <Modal title={initial ? 'Edit budget' : 'Create budget'} onClose={onClose}>
+      <label>
+        Category
+        <select
+          value={categoryName}
+          onChange={(e) => {
+            setCategoryName(e.target.value)
+            setCategoryId(categoryOptions.find((option) => option.name === e.target.value)?.id || '')
+          }}
+        >
+          {categoryOptions.map((option) => (
+            <option key={option.id || option.name}>{option.name}</option>
+          ))}
+        </select>
+      </label>
       <label>
         Budget name
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Food & Dining" />

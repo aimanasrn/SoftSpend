@@ -71,6 +71,7 @@ alter table transactions add column if not exists created_by uuid references aut
 alter table budgets add column if not exists household_id uuid references households(id) on delete set null;
 alter table budgets add column if not exists visibility text not null default 'personal' check (visibility in ('personal','shared'));
 alter table budgets add column if not exists created_by uuid references auth.users on delete set null;
+alter table transactions add column if not exists budget_id uuid references budgets(id) on delete set null;
 alter table bills add column if not exists household_id uuid references households(id) on delete set null;
 alter table bills add column if not exists visibility text not null default 'personal' check (visibility in ('personal','shared'));
 alter table bills add column if not exists created_by uuid references auth.users on delete set null;
@@ -86,6 +87,7 @@ alter table household_members add column if not exists email text;
 create index if not exists household_members_user_idx on household_members(user_id);
 create index if not exists household_members_household_idx on household_members(household_id);
 create index if not exists transactions_household_idx on transactions(household_id);
+create index if not exists transactions_budget_idx on transactions(budget_id);
 create index if not exists budgets_household_idx on budgets(household_id);
 create index if not exists bills_household_idx on bills(household_id);
 create index if not exists savings_goals_household_idx on savings_goals(household_id);

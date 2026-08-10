@@ -67,6 +67,7 @@ const mapLiveTransaction = (row: any): Transaction => {
   return {
     id: row.id,
     categoryId: row.category_id,
+    budgetId: row.budget_id,
     householdId: row.household_id,
     createdBy: row.created_by,
     rawDate: row.transaction_date,
@@ -102,7 +103,7 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
     const { data, error: queryError } = await supabase
       .from('transactions')
       .select(
-        'id,type,amount,description,transaction_date,payment_method,visibility,household_id,created_by,category_id,category:categories(name)',
+        'id,type,amount,description,transaction_date,payment_method,visibility,household_id,created_by,category_id,budget_id,category:categories(name)',
       )
       .order('transaction_date', { ascending: false })
     if (queryError) {
@@ -241,6 +242,9 @@ function AddTransaction({
   const [category, setCategory] = useState(initial?.category || EXPENSE_CATEGORY_NAMES[0])
   const [categoryId, setCategoryId] = useState(initial?.categoryId || '')
   const [categoryOptions, setCategoryOptions] = useState(EXPENSE_CATEGORY_NAMES.map((name) => ({ id: '', name })))
+  const [budgetId, setBudgetId] = useState(initial?.budgetId || '')
+  const [budgetOptions, setBudgetOptions] = useState<any[]>([])
+  const [budgetLoading, setBudgetLoading] = useState(false)
   const [date, setDate] = useState(initial?.rawDate || new Date().toISOString().slice(0, 10))
   const [description, setDescription] = useState(initial?.merchant || '')
   const [method, setMethod] = useState(initial?.method || 'Debit Card')
@@ -271,17 +275,51 @@ function AddTransaction({
       .order('name')
       .then(({ data, error: queryError }) => {
         if (!active) return
-        if (!queryError && data?.length) {
-          setCategoryOptions(data)
-          const selected = data.find((option) => option.id === initial?.categoryId || option.name === initial?.category)
-          setCategory(selected?.name || data[0].name)
-          setCategoryId(selected?.id || data[0].id)
-        } else setCategoryOptions(defaults.map((name) => ({ id: '', name })))
+        const savedOptions = queryError ? [] : data || []
+        const optionsByName = new Map(savedOptions.map((option) => [option.name, option]))
+        const combinedOptions = [
+          ...savedOptions,
+          ...defaults.filter((name) => !optionsByName.has(name)).map((name) => ({ id: '', name })),
+        ]
+        setCategoryOptions(combinedOptions)
+        const selected = combinedOptions.find(
+          (option) => option.id === initial?.categoryId || option.name === initial?.category,
+        )
+        setCategory(selected?.name || combinedOptions[0]?.name || defaults[0])
+        setCategoryId(selected?.id || combinedOptions[0]?.id || '')
       })
     return () => {
       active = false
     }
   }, [type, liveData])
+
+  useEffect(() => {
+    if (!liveData || type !== 'expense' || !categoryId) {
+      setBudgetOptions([])
+      setBudgetId('')
+      return
+    }
+    const [year, month] = date.split('-').map(Number)
+    let active = true
+    setBudgetLoading(true)
+    supabase
+      .from('budgets')
+      .select('id,name,budget_amount,month,year,category_id')
+      .eq('category_id', categoryId)
+      .eq('month', month)
+      .eq('year', year)
+      .order('name')
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        const options = queryError ? [] : data || []
+        setBudgetOptions(options)
+        setBudgetId((current) => (current && options.some((option) => option.id === current) ? current : ''))
+        setBudgetLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [categoryId, date, liveData, type])
 
   const save = async () => {
     if (!liveData) {
@@ -348,6 +386,7 @@ function AddTransaction({
 
     const transactionPayload = {
       category_id: selectedCategoryId,
+      budget_id: type === 'expense' ? budgetId || null : null,
       type,
       amount: amountValue,
       description: description.trim(),
@@ -403,6 +442,7 @@ function AddTransaction({
               onChange={(e) => {
                 setCategory(e.target.value)
                 setCategoryId(categoryOptions.find((option) => option.name === e.target.value)?.id || '')
+                setBudgetId('')
               }}
             >
               {categoryOptions.map((option) => (
@@ -415,6 +455,29 @@ function AddTransaction({
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
         </div>
+        {liveData && type === 'expense' && (
+          <label>
+            Budget <small className="field-hint">Optional</small>
+            <select
+              value={budgetId}
+              onChange={(e) => setBudgetId(e.target.value)}
+              disabled={budgetLoading || !categoryId || !budgetOptions.length}
+            >
+              <option value="">
+                {budgetLoading
+                  ? 'Loading budgets…'
+                  : budgetOptions.length
+                    ? 'No budget selected'
+                    : 'No budget for this category and month'}
+              </option>
+              {budgetOptions.map((budget) => (
+                <option key={budget.id} value={budget.id}>
+                  {budget.name} ({money(budget.budget_amount)} limit)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Description
           <input

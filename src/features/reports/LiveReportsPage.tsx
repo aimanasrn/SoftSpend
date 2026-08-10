@@ -4,15 +4,26 @@ import { Check, Download, FileText } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabaseClient'
 import { compactMoney } from '../../lib/format'
-import { Header } from '../shared/LivePagePrimitives'
+import { Header, Loading } from '../shared/LivePagePrimitives'
+
+async function loadTransactions() {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id,type,amount,description,transaction_date,category:categories(name)')
+    .order('transaction_date', { ascending: false })
+
+  return { rows: data || [], error: error?.message || '' }
+}
 
 export function LiveReportsPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [exported, setExported] = useState(false)
   useEffect(() => {
     loadTransactions().then((result) => {
       setRows(result.rows)
+      setError(result.error)
       setLoading(false)
     })
   }, [])
@@ -49,6 +60,7 @@ export function LiveReportsPage() {
           </>
         }
       />
+      <Loading loading={loading} error={error} />
       <div className="report-hero">
         <div>
           <span className="section-eyebrow">Saved transaction summary</span>
