@@ -19,17 +19,22 @@ export function LiveReportsPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [exported, setExported] = useState(false)
+  const [reportOwner, setReportOwner] = useState('SoftSpend')
+  const [exportedFile, setExportedFile] = useState('')
   useEffect(() => {
     loadTransactions().then((result) => {
       setRows(result.rows)
       setError(result.error)
       setLoading(false)
     })
+    supabase.auth.getUser().then(({ data }) => {
+      const name = data.user?.user_metadata?.full_name || data.user?.email?.split('@')[0]
+      if (name) setReportOwner(name)
+    })
   }, [])
   const income = rows.filter((x) => x.type === 'income').reduce((s, x) => s + Number(x.amount), 0)
   const spent = rows.filter((x) => x.type === 'expense').reduce((s, x) => s + Number(x.amount), 0)
-  const exportReport = () => {
+  const exportReport = (reportType: 'Monthly' | 'Category' | 'Transaction' = 'Transaction') => {
     const sheet = XLSX.utils.json_to_sheet(
       rows.map((x) => ({
         Date: x.transaction_date,
@@ -41,9 +46,13 @@ export function LiveReportsPage() {
     )
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, sheet, 'Transactions')
-    XLSX.writeFile(workbook, 'softspend-report.xlsx')
-    setExported(true)
-    setTimeout(() => setExported(false), 2500)
+    const safeOwner = reportOwner.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '') || 'SoftSpend'
+    const month = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date())
+    const reportLabel = reportType === 'Monthly' ? month.replace(' ', '_') : reportType
+    const fileName = `${safeOwner}_${reportLabel}_SSReport.xlsx`
+    XLSX.writeFile(workbook, fileName)
+    setExportedFile(fileName)
+    setTimeout(() => setExportedFile(''), 2500)
   }
   return (
     <div>
@@ -54,7 +63,7 @@ export function LiveReportsPage() {
         action={
           <>
             <span className="live-data-badge large">Live data</span>
-            <button className="primary-button" onClick={exportReport} disabled={loading}>
+            <button className="primary-button" onClick={() => exportReport('Transaction')} disabled={loading}>
               <Download size={17} /> Export to Excel
             </button>
           </>
@@ -88,25 +97,25 @@ export function LiveReportsPage() {
       </div>
       <div className="report-grid">
         {[
-          ['Monthly report', 'Income, expenses & savings'],
-          ['Category report', 'Where your money went'],
-          ['Transaction report', 'Every saved transaction'],
-        ].map(([title, text]) => (
+          ['Monthly report', 'Income, expenses & savings', 'Monthly'],
+          ['Category report', 'Where your money went', 'Category'],
+          ['Transaction report', 'Every saved transaction', 'Transaction'],
+        ].map(([title, text, reportType]) => (
           <div className="report-card" key={title}>
             <div className="report-icon">
               <FileText size={19} />
             </div>
             <h3>{title}</h3>
             <p>{text}</p>
-            <button onClick={exportReport}>
+            <button onClick={() => exportReport(reportType as 'Monthly' | 'Category' | 'Transaction')}>
               Download <Download size={14} />
             </button>
           </div>
         ))}
       </div>
-      {exported && (
+      {exportedFile && (
         <div className="toast">
-          <Check size={16} /> Real Excel report exported.
+          <Check size={16} /> Exported {exportedFile}.
         </div>
       )}
     </div>
