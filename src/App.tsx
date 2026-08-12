@@ -16,6 +16,8 @@ import { HouseholdPage } from './features/household/HouseholdPage'
 import { LiveHouseholdPage } from './features/household/LiveHouseholdPage'
 import { DashboardReal } from './features/dashboard/DashboardPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
+import { useSubscriptionStatus } from './features/billing/useSubscriptionStatus'
+import { ProFeatureGate } from './features/billing/ProFeatureGate'
 import {
   AnalyticsPage,
   BillsPage,
@@ -54,6 +56,7 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [profile, setProfile] = useState<ProfileRecord | null>(null)
   const navigate = useNavigate()
+  const { isPro } = useSubscriptionStatus(Boolean(session), `${page}:${location.search}`)
 
   useEffect(() => {
     setPageState(pageFromPath(location.pathname))
@@ -150,21 +153,21 @@ export default function App() {
       case 'budgets':
         return session ? <LiveBudgetsPage /> : <BudgetsPage />
       case 'bills':
-        return session ? <LiveBillsPage /> : <BillsPage />
+        return isPro ? (session ? <LiveBillsPage /> : <BillsPage />) : <ProFeatureGate feature="Bills" description="Keep upcoming payments organized with reminders and paid status tracking." />
       case 'goals':
-        return session ? <LiveGoalsPage /> : <GoalsPage />
+        return isPro ? (session ? <LiveGoalsPage /> : <GoalsPage />) : <ProFeatureGate feature="Goals" description="Turn your plans into measurable savings goals and watch your progress grow." />
       case 'analytics':
-        return session ? <LiveAnalyticsPage /> : <AnalyticsPage />
+        return isPro ? (session ? <LiveAnalyticsPage /> : <AnalyticsPage />) : <ProFeatureGate feature="Analytics" description="See deeper spending patterns and understand where your money is going." />
       case 'reports':
-        return session ? <LiveReportsPage /> : <ReportsPage />
+        return isPro ? (session ? <LiveReportsPage /> : <ReportsPage />) : <ProFeatureGate feature="Reports" description="Download clear monthly, category, and transaction reports for your records." />
       case 'household':
-        return session ? <LiveHouseholdPage /> : <HouseholdPage />
+        return isPro ? (session ? <LiveHouseholdPage /> : <HouseholdPage />) : <ProFeatureGate feature="Household sharing" description="Share selected expenses, budgets, and goals with the people who matter." />
       case 'settings':
-        return <ProfileSettingsPage theme={theme} setTheme={setThemeSafe} profile={identity} isAuthenticated={Boolean(session)} />
+        return <ProfileSettingsPage theme={theme} setTheme={setThemeSafe} profile={identity} isAuthenticated={Boolean(session)} isPro={isPro} />
       default:
         return <DashboardReal setPage={setPage} liveData={Boolean(session)} />
     }
-  }, [page, theme, session?.user.id])
+  }, [page, theme, session?.user.id, isPro])
 
   if (session === undefined)
     return (
@@ -180,7 +183,7 @@ export default function App() {
     return <Landing onEnter={() => setAuthOpen(true)} />
   }
   return (
-    <AppShell page={page} setPage={setPage} theme={theme} setTheme={setThemeSafe} onLogout={logout} profile={identity}>
+    <AppShell page={page} setPage={setPage} theme={theme} setTheme={setThemeSafe} onLogout={logout} profile={identity} isPro={isPro}>
       {content}
     </AppShell>
   )

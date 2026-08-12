@@ -490,11 +490,13 @@ function ProfileSettingsPage({
   setTheme,
   profile,
   isAuthenticated = false,
+  isPro = false,
 }: {
   theme: 'light' | 'dark'
   setTheme: (t: 'light' | 'dark') => void
   profile: AppIdentity
   isAuthenticated?: boolean
+  isPro?: boolean
 }) {
   return (
     <div className="profile-aware-settings">
@@ -502,7 +504,10 @@ function ProfileSettingsPage({
         <div className="large-avatar">{profile.initials}</div>
         <div>
           <span className="section-eyebrow">Signed-in profile</span>
-          <strong>{profile.name}</strong>
+          <strong className="profile-name-line">
+            {profile.name}
+            {isPro && <span className="pro-badge">Pro</span>}
+          </strong>
           <span>{profile.email}</span>
         </div>
       </div>

@@ -2,6 +2,7 @@
 import React from 'react'
 import {
   Activity,
+  ArrowRight,
   ArrowUpRight,
   Bell,
   Check,
@@ -26,7 +27,7 @@ function Landing({ onEnter }: { onEnter: () => void }) {
         <nav>
           <a href="#features">Features</a>
           <a href="#how">How It Works</a>
-          <a href="#benefits">Benefits</a>
+          <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
         </nav>
         <div className="nav-actions">
@@ -238,6 +239,53 @@ function Landing({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
         </section>
+        <section id="pricing" className="pricing-section wrap">
+          <div className="pricing-intro">
+            <span className="section-eyebrow">Simple pricing</span>
+            <h2>
+              Start free.
+              <br />
+              <em>Grow with clarity.</em>
+            </h2>
+            <p>Use the essentials for free, then unlock deeper insights and shared planning when you need them.</p>
+          </div>
+          <div className="pricing-grid">
+            <div className="price-card">
+              <div className="price-card-top">
+                <div>
+                  <span className="price-label">For your everyday money</span>
+                  <h3>Free</h3>
+                </div>
+                <span className="price-amount">RM 0</span>
+              </div>
+              <p className="price-description">Everything you need to build a steady monthly money habit.</p>
+              <div className="price-list">
+                {['Unlimited Dashboard', 'Unlimited Budgets', 'Unlimited Transactions'].map((item) => (
+                  <span key={item}><Check size={15} /> {item}</span>
+                ))}
+              </div>
+              <button className="ghost-button price-button" onClick={onEnter}>Start free <ArrowRight size={15} /></button>
+            </div>
+            <div className="price-card featured">
+              <div className="popular-label">Most popular</div>
+              <div className="price-card-top">
+                <div>
+                  <span className="price-label">For deeper clarity</span>
+                  <h3>SoftSpend Pro</h3>
+                </div>
+                <span className="price-amount">RM 9.90<small>/ month</small></span>
+              </div>
+              <p className="price-description">Unlock the tools that make planning, sharing, and understanding your money easier.</p>
+              <div className="price-list">
+                {['Everything in Free', 'Household sharing', 'Excel import & downloadable reports', 'Goals and advanced analytics'].map((item) => (
+                  <span key={item}><Check size={15} /> {item}</span>
+                ))}
+              </div>
+              <button className="primary-button price-button" onClick={onEnter}>Upgrade to Pro <ArrowUpRight size={16} /></button>
+              <small className="price-note">Create your account first. Upgrade anytime from Settings.</small>
+            </div>
+          </div>
+        </section>
         <section id="benefits" className="cta-section wrap">
           <div>
             <h2>
@@ -280,22 +328,18 @@ function Landing({ onEnter }: { onEnter: () => void }) {
           </div>
           <div className="faq-list">
             {[
-              'Is SoftSpend free?',
-              'Is my financial data secure?',
-              'Can I export my data?',
-              'Can I use SoftSpend on my phone?',
-              'Can I create my own spending categories?',
-            ].map((q, i) => (
+              ['Is SoftSpend free?', 'Yes. Free includes unlimited Dashboard, Budgets, and Transactions.'],
+              ['What does Pro include?', 'Pro unlocks Household sharing, Excel import, Reports, Goals, and advanced Analytics.'],
+              ['Can I upgrade later?', 'Yes. Start free and upgrade anytime from Settings when you need the extra tools.'],
+              ['Is my financial data secure?', 'Your account is protected by Supabase authentication, and your data stays connected to your own account.'],
+              ['Can I cancel Pro?', 'Yes. You can manage or cancel your monthly subscription through the billing portal.'],
+            ].map(([q, answer], i) => (
               <details key={q} open={i === 0}>
                 <summary>
                   {q}
                   <Plus size={18} />
                 </summary>
-                <p>
-                  {i === 0
-                    ? 'Yes. SoftSpend is free to get started, with the essentials you need to build a healthy monthly money habit.'
-                    : 'SoftSpend is designed to keep this part simple, transparent and in your control.'}
-                </p>
+                <p>{answer}</p>
               </details>
             ))}
           </div>
@@ -316,6 +360,7 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               <b>Product</b>
               <a href="#features">Features</a>
               <a href="#how">How it works</a>
+              <a href="#pricing">Pricing</a>
               <a href="#">Dashboard</a>
             </div>
             <div>
