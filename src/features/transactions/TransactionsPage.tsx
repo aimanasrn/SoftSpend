@@ -92,6 +92,7 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
   const [deleting, setDeleting] = useState<any>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [exported, setExported] = useState(false)
   const load = async () => {
     if (!liveData) {
       setItems(transactions)
@@ -128,6 +129,35 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
     setDeleteBusy(false)
   }
   const filtered = items.filter((t) => filter === 'All' || t.type === filter.toLowerCase())
+  const downloadTransactions = () => {
+    if (filtered.length === 0) return
+
+    const escapeCsv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const rows = [
+      ['Date', 'Description', 'Type', 'Category', 'Payment method', 'Amount'],
+      ...filtered.map((t) => [
+        t.date,
+        t.merchant,
+        t.type === 'income' ? 'Income' : 'Expense',
+        t.category,
+        t.method,
+        t.amount.toFixed(2),
+      ]),
+    ]
+    const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')}`
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const scope = filter === 'All' ? 'Transactions' : `${filter}_Transactions`
+    link.href = url
+    link.download = `SoftSpend_${scope}_SSReport.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setExported(true)
+    window.setTimeout(() => setExported(false), 2800)
+  }
   return (
     <div>
       <PageHeader
@@ -155,7 +185,13 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
         <button className="filter-button">
           <SlidersHorizontal size={16} /> Filters
         </button>
-        <button className="icon-button">
+        <button
+          className="icon-button"
+          aria-label="Download transactions report"
+          title="Download transactions report"
+          onClick={downloadTransactions}
+          disabled={filtered.length === 0}
+        >
           <Download size={17} />
         </button>
       </div>
@@ -210,6 +246,7 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
           error={deleteError}
         />
       )}
+      {exported && <div className="toast"><Download size={16} /> Transactions report downloaded.</div>}
     </div>
   )
 }

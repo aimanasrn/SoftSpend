@@ -3,11 +3,22 @@ import { useEffect, useState } from 'react'
 import { Check, MoreHorizontal, Plus, Target } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { compactMoney, money } from '../../lib/format'
-import { colors, ErrorBox, Header, Loading, Modal } from '../shared/LivePagePrimitives'
+import { colors, dateLabel, ErrorBox, Header, Loading, Modal } from '../shared/LivePagePrimitives'
 import { RowActions } from '../../components/data/RowActions'
 import { ConfirmDeleteDialog } from '../shared/LivePagePrimitives'
 import { loadCurrentHousehold } from '../../lib/household'
 import { VisibilityToggle } from '../../components/data/VisibilityToggle'
+
+function goalErrorMessage(message: string) {
+  const lower = message.toLowerCase()
+  if (lower.includes('401') || lower.includes('jwt') || lower.includes('unauthorized') || lower.includes('invalid token')) {
+    return 'Your sign-in session has expired. Please sign out and log in again before saving a goal.'
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network')) {
+    return 'We could not connect to SoftSpend. Check your internet connection and try again.'
+  }
+  return message || 'We could not save this goal. Please try again.'
+}
 
 export function LiveGoalsPage() {
   const [rows, setRows] = useState<any[]>([])
@@ -24,7 +35,7 @@ export function LiveGoalsPage() {
       .from('savings_goals')
       .select('id,name,description,target_amount,current_amount,target_date,status,household_id,visibility')
       .order('created_at', { ascending: false })
-    if (e) setError(e.message)
+    if (e) setError(goalErrorMessage(e.message))
     else
       setRows(
         (data || []).map((x) => ({
@@ -158,7 +169,9 @@ function GoalModal({ onClose, onSaved, initial }: { onClose: () => void; onSaved
   const [householdId, setHouseholdId] = useState(initial?.household_id || '')
   const [error, setError] = useState('')
   useEffect(() => {
-    loadCurrentHousehold().then(({ household }) => setHouseholdId(household?.id || ''))
+    loadCurrentHousehold()
+      .then(({ household }) => setHouseholdId(household?.id || ''))
+      .catch(() => setHouseholdId(''))
   }, [])
   const save = async () => {
     const value = Number(target)
@@ -194,7 +207,7 @@ function GoalModal({ onClose, onSaved, initial }: { onClose: () => void; onSaved
           current_amount: 0,
           status: 'active',
         })
-    if (e) setError(e.message)
+    if (e) setError(goalErrorMessage(e.message))
     else onSaved()
   }
   return (

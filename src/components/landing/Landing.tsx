@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -16,31 +16,58 @@ import {
   Sparkles,
   Target,
   WalletCards,
+  X,
 } from 'lucide-react'
 import { Logo } from '../layout/AppShell'
 
 function Landing({ onEnter }: { onEnter: () => void }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const enterAuth = () => {
+    setMobileMenuOpen(false)
+    onEnter()
+  }
+
   return (
     <div className="landing">
       <header className="landing-nav wrap">
         <Logo />
         <nav>
-          <a href="#features">Features</a>
-          <a href="#how">How It Works</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+          <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
+          <a href="#how" onClick={() => setMobileMenuOpen(false)}>How It Works</a>
+          <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+          <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
         </nav>
         <div className="nav-actions">
-          <button className="text-button" onClick={onEnter}>
+          <button className="text-button" onClick={enterAuth}>
             Login
           </button>
-          <button className="primary-button small" onClick={onEnter}>
+          <button className="primary-button small" onClick={enterAuth}>
             Get Started <ChevronRight size={16} />
           </button>
         </div>
-        <button className="mobile-icon">
-          <Menu size={20} />
+        <button
+          className={`mobile-icon ${mobileMenuOpen ? 'active' : ''}`}
+          aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((open) => !open)}
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
+        {mobileMenuOpen && (
+          <div className="landing-mobile-menu">
+            <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <a href="#how" onClick={() => setMobileMenuOpen(false)}>How It Works</a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
+            <div className="landing-mobile-actions">
+              <button className="text-button" onClick={enterAuth}>Login</button>
+              <button className="primary-button small" onClick={enterAuth}>
+                Get Started <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
       <main>
         <section className="hero wrap">

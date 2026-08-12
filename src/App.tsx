@@ -53,10 +53,17 @@ export default function App() {
   const [demoMode, setDemoMode] = useState(false)
   const location = useLocation()
   const [page, setPageState] = useState<Page>(() => pageFromPath(location.pathname))
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const storedTheme = localStorage.getItem('softspend-theme')
+    return storedTheme === 'dark' ? 'dark' : 'light'
+  })
   const [profile, setProfile] = useState<ProfileRecord | null>(null)
   const navigate = useNavigate()
   const { isPro } = useSubscriptionStatus(Boolean(session), `${page}:${location.search}`)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
 
   useEffect(() => {
     setPageState(pageFromPath(location.pathname))
@@ -108,6 +115,7 @@ export default function App() {
 
   const setThemeSafe = (t: 'light' | 'dark') => {
     setTheme(t)
+    localStorage.setItem('softspend-theme', t)
     document.documentElement.dataset.theme = t
   }
   const identityName = demoMode
@@ -163,7 +171,18 @@ export default function App() {
       case 'household':
         return isPro ? (session ? <LiveHouseholdPage /> : <HouseholdPage />) : <ProFeatureGate feature="Household sharing" description="Share selected expenses, budgets, and goals with the people who matter." />
       case 'settings':
-        return <ProfileSettingsPage theme={theme} setTheme={setThemeSafe} profile={identity} isAuthenticated={Boolean(session)} isPro={isPro} />
+        return (
+          <ProfileSettingsPage
+            theme={theme}
+            setTheme={setThemeSafe}
+            profile={identity}
+            profileRecord={profile}
+            isAuthenticated={Boolean(session)}
+            isPro={isPro}
+            onProfileSaved={(nextProfile) => setProfile(nextProfile)}
+            onLogout={logout}
+          />
+        )
       default:
         return <DashboardReal setPage={setPage} liveData={Boolean(session)} />
     }

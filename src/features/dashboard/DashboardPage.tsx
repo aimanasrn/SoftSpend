@@ -48,6 +48,7 @@ function SummaryCard({
   icon: Icon,
   tone,
   trend,
+  trendValue,
 }: {
   label: string
   value: string
@@ -55,6 +56,7 @@ function SummaryCard({
   icon: React.ElementType
   tone: string
   trend?: 'up' | 'down'
+  trendValue?: string
 }) {
   return (
     <div className="summary-card">
@@ -69,7 +71,7 @@ function SummaryCard({
         {trend && (
           <span className={trend === 'up' ? 'positive' : 'negative'}>
             {trend === 'up' ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{' '}
-            {trend === 'up' ? '+12.4%' : '-8.1%'}
+            {trendValue || (trend === 'up' ? '+12.4%' : '-8.1%')}
           </span>
         )}
         <span>{meta}</span>
@@ -195,7 +197,8 @@ function SalaryUsage({ usage, spent, income }: { usage: number; spent: number; i
             {money(spent)} <span>of {money(income)}</span>
           </strong>
           <p>
-            You're doing well. <b>39%</b> of your salary is still available.
+            {usage <= 50 ? 'You’re doing well.' : usage <= 75 ? 'Your spending is in a manageable range.' : 'Your spending is getting close to your income.'}{' '}
+            <b>{Math.max(100 - usage, 0)}%</b> of your salary is still available.
           </p>
           <div className="legend">
             <span>
@@ -513,6 +516,207 @@ function Insights() {
     </div>
   )
 }
+
+function healthLabel(score: number) {
+  if (score >= 85) return { title: 'Excellent', tone: 'Great' }
+  if (score >= 70) return { title: 'Good', tone: 'Good' }
+  if (score >= 50) return { title: 'Fair', tone: 'Watch' }
+  return { title: 'Needs attention', tone: 'Review' }
+}
+
+function LiveFinancialScore({
+  income,
+  spent,
+  budgets: liveBudgets,
+  bills,
+}: {
+  income: number
+  spent: number
+  budgets: any[]
+  bills: any[]
+}) {
+  const budgetLimit = liveBudgets.reduce((sum, budget) => sum + Number(budget.limit || 0), 0)
+  const budgetSpent = liveBudgets.reduce((sum, budget) => sum + Number(budget.spent || 0), 0)
+  const budgetScore = budgetLimit > 0 ? Math.max(0, Math.min(100, 100 - Math.max(budgetSpent - budgetLimit, 0) / budgetLimit * 100)) : null
+  const remaining = income - spent
+  const savingsRate = income > 0 ? Math.max(0, remaining / income * 100) : null
+  const savingsScore = savingsRate === null ? null : Math.min(100, Math.round(savingsRate * 4))
+  const paidBills = bills.filter((bill) => bill.status === 'paid').length
+  const billScore = bills.length > 0 ? Math.round((paidBills / bills.length) * 100) : null
+  const factors = [
+    { label: 'Budget adherence', value: budgetScore, empty: 'No budgets' },
+    { label: 'Savings rate', value: savingsScore, empty: 'No income' },
+    { label: 'Bills paid', value: billScore, empty: 'No bills' },
+  ]
+  const available = factors.filter((factor) => factor.value !== null)
+  const score = available.length
+    ? Math.round(available.reduce((sum, factor) => sum + (factor.value || 0), 0) / available.length)
+    : 0
+  const status = healthLabel(score)
+
+  return (
+    <div className="panel score-panel">
+      <div className="panel-head">
+        <div>
+          <span className="section-eyebrow">Your money at a glance</span>
+          <h2>Financial health</h2>
+        </div>
+        <CircleHelp size={18} className="muted-icon" />
+      </div>
+      <div className="score-content">
+        <div className="score-number">
+          <strong>{score}</strong>
+          <span>/ 100</span>
+        </div>
+        <div className="score-badge">
+          <span className="score-check">
+            <Check size={16} />
+          </span>
+          <div>
+            <strong>{status.title}</strong>
+            <span>{available.length ? 'Calculated from your saved data' : 'Add data to see your score'}</span>
+          </div>
+        </div>
+      </div>
+      <div className="score-bar">
+        <i style={{ width: `${score}%` }} />
+      </div>
+      <p className="score-note">
+        {available.length
+          ? `Based on ${budgetLimit > 0 ? 'budget adherence' : 'your spending'}, ${income > 0 ? 'savings rate' : 'income'}, and ${bills.length ? 'bill payment status' : 'saved bills'}.`
+          : 'Add transactions, budgets, or bills to build your financial health score.'}
+      </p>
+      <div className="score-factors">
+        {factors.map((factor) => (
+          <span key={factor.label}>
+            {factor.label} <b>{factor.value === null ? factor.empty : healthLabel(factor.value).tone}</b>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LiveUpcomingBills({ setPage, bills }: { setPage: (p: Page) => void; bills: any[] }) {
+  return (
+    <div className="panel list-panel">
+      <div className="panel-head">
+        <div>
+          <span className="section-eyebrow">Don’t miss a payment</span>
+          <h2>Upcoming bills</h2>
+        </div>
+        <button className="link-button" onClick={() => setPage('bills')}>
+          View all <ArrowUpRight size={15} />
+        </button>
+      </div>
+      {bills.length === 0 ? (
+        <div className="data-empty">No upcoming bills this month.</div>
+      ) : (
+        <div className="bill-list">
+          {bills.slice(0, 3).map((bill, index) => (
+            <div className="bill-row" key={bill.id || bill.name}>
+              <div className="bill-icon" style={{ background: ['#d8d0ff', '#f8e4ae', '#f6c8d5'][index % 3] }}>
+                <Zap size={16} />
+              </div>
+              <div>
+                <strong>{bill.name}</strong>
+                <span>Due {new Date(`${bill.due_date}T00:00:00`).toLocaleDateString('en-MY', { month: 'short', day: 'numeric' })}</span>
+              </div>
+              <b>{money(Number(bill.amount || 0))}</b>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LiveGoalsPreview({ setPage, goals }: { setPage: (p: Page) => void; goals: any[] }) {
+  const activeGoals = goals.filter((goal) => goal.status !== 'completed').slice(0, 2)
+  return (
+    <div className="panel goals-panel">
+      <div className="panel-head">
+        <div>
+          <span className="section-eyebrow">Keep moving forward</span>
+          <h2>Savings goals</h2>
+        </div>
+        <button className="link-button" onClick={() => setPage('goals')}>
+          View all <ArrowUpRight size={15} />
+        </button>
+      </div>
+      {activeGoals.length === 0 ? (
+        <div className="data-empty">No active savings goals yet.</div>
+      ) : (
+        activeGoals.map((goal, index) => {
+          const current = Number(goal.current_amount || 0)
+          const target = Number(goal.target_amount || 0)
+          const pct = target ? Math.min(Math.round((current / target) * 100), 100) : 0
+          return index === 0 ? (
+            <div className="goal-highlight" key={goal.id}>
+              <div className="goal-illustration">
+                <Target size={24} />
+                <span>{pct}%</span>
+              </div>
+              <div>
+                <strong>{goal.name}</strong>
+                <span>{money(current)} saved of {money(target)}</span>
+                <div className="goal-bar"><i style={{ width: `${pct}%` }} /></div>
+                <small>{money(Math.max(target - current, 0))} to go</small>
+              </div>
+            </div>
+          ) : (
+            <div className="goal-small" key={goal.id}>
+              <div className="goal-small-icon"><Plane size={17} /></div>
+              <div><strong>{goal.name}</strong><span>{money(current)} of {money(target)}</span></div>
+              <b>{pct}%</b>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+function LiveInsights({ categories, budgets: liveBudgets, income, spent }: { categories: any[]; budgets: any[]; income: number; spent: number }) {
+  const topCategory = categories[0]
+  const topBudget = liveBudgets.find((budget) => budget.category === topCategory?.name)
+  const categoryPct = topBudget?.limit ? Math.round((topCategory.value / topBudget.limit) * 100) : null
+  const remaining = income - spent
+  return (
+    <div className="panel insights-panel">
+      <div className="panel-head">
+        <div>
+          <span className="section-eyebrow">A little perspective</span>
+          <h2>Smart insights</h2>
+        </div>
+        <div className="insight-spark"><Sparkles size={17} /></div>
+      </div>
+      {!topCategory ? (
+        <div className="data-empty">Add expenses to receive spending insights.</div>
+      ) : (
+        <>
+          <div className="insight-card">
+            <div className="insight-icon"><Utensils size={17} /></div>
+            <div>
+              <strong>{topCategory.name} is your top category</strong>
+              <p>{categoryPct === null ? `You spent ${money(topCategory.value)} here this month.` : `${categoryPct}% of the ${topBudget.name} budget has been used.`}</p>
+            </div>
+            <ChevronRight size={17} />
+          </div>
+          <div className="insight-card">
+            <div className="insight-icon mint"><TrendingUp size={17} /></div>
+            <div>
+              <strong>{remaining >= 0 ? 'You still have room this month' : 'Spending is above income'}</strong>
+              <p>{remaining >= 0 ? `${money(remaining)} remains after your saved income and expenses.` : `You are ${money(Math.abs(remaining))} over your saved income.`}</p>
+            </div>
+            <ChevronRight size={17} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function buildLiveCategoryData(items: Transaction[]) {
   const colors = ['#9389ff', '#f2a9be', '#f4d68d', '#9dceff', '#bdebd8', '#d8c8ff']
   const totals: Record<string, number> = {}
@@ -671,6 +875,9 @@ function LiveRecentTransactions({ setPage, items }: { setPage: (p: Page) => void
 }
 function DashboardReal({ setPage, liveData }: { setPage: (p: Page) => void; liveData: boolean }) {
   const [items, setItems] = useState<Transaction[]>([])
+  const [budgetRows, setBudgetRows] = useState<any[]>([])
+  const [billRows, setBillRows] = useState<any[]>([])
+  const [goalRows, setGoalRows] = useState<any[]>([])
   const [loading, setLoading] = useState(liveData)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -679,16 +886,37 @@ function DashboardReal({ setPage, liveData }: { setPage: (p: Page) => void; live
       return
     }
     let active = true
-    supabase
-      .from('transactions')
-      .select('id,type,amount,description,transaction_date,payment_method,category:categories(name)')
-      .order('transaction_date', { ascending: false })
-      .then(({ data, error: queryError }) => {
-        if (!active) return
-        if (queryError) setError(queryError.message)
-        else setItems((data || []).map(mapLiveTransaction))
-        setLoading(false)
-      })
+    Promise.all([
+      supabase
+        .from('transactions')
+        .select('id,type,amount,description,transaction_date,payment_method,category_id,budget_id,category:categories(name)')
+        .order('transaction_date', { ascending: false }),
+      supabase
+        .from('budgets')
+        .select('id,name,budget_amount,month,year,category_id,category:categories(name,color)')
+        .order('year', { ascending: false })
+        .order('month', { ascending: false }),
+      supabase.from('bills').select('id,name,amount,due_date,status').order('due_date'),
+      supabase
+        .from('savings_goals')
+        .select('id,name,description,target_amount,current_amount,target_date,status')
+        .order('created_at', { ascending: false }),
+    ]).then(([transactionResult, budgetResult, billResult, goalResult]) => {
+      if (!active) return
+      const queryErrors = [transactionResult.error, budgetResult.error, billResult.error, goalResult.error]
+        .filter(Boolean)
+        .map((queryError: any) => queryError.message)
+      if (queryErrors.length) setError(queryErrors.join(' '))
+      setItems((transactionResult.data || []).map(mapLiveTransaction))
+      setBudgetRows(budgetResult.data || [])
+      setBillRows((billResult.data || []).map((bill: any) => ({ ...bill, amount: Number(bill.amount || 0) })))
+      setGoalRows((goalResult.data || []).map((goal: any) => ({
+        ...goal,
+        target_amount: Number(goal.target_amount || 0),
+        current_amount: Number(goal.current_amount || 0),
+      })))
+      setLoading(false)
+    })
     return () => {
       active = false
     }
@@ -714,6 +942,29 @@ function DashboardReal({ setPage, liveData }: { setPage: (p: Page) => void; live
   const usage = income > 0 ? Math.min(Math.round((spent / income) * 100), 999) : 0
   const categories = buildLiveCategoryData(monthItems)
   const trend = buildLiveSpendingTrend(items)
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentMonthBudgets = budgetRows.filter((budget) => Number(budget.month) === currentMonth && Number(budget.year) === currentYear)
+  const spentByBudget = monthItems
+    .filter((transaction: any) => transaction.type === 'expense' && transaction.budgetId)
+    .reduce((totals, transaction: any) => {
+      totals[transaction.budgetId] = (totals[transaction.budgetId] || 0) + transaction.amount
+      return totals
+    }, {})
+  const liveBudgets = currentMonthBudgets.map((budget: any, index) => ({
+    id: budget.id,
+    name: budget.name,
+    category: budget.category?.name || budget.name,
+    limit: Number(budget.budget_amount || 0),
+    spent: Number(spentByBudget[budget.id] || 0),
+    color: budget.category?.color || ['#958aff', '#f6b7c8', '#a6d5ff', '#f5d88f', '#c9bfff'][index % 5],
+  }))
+  const currentBills = billRows.filter((bill) => {
+    const dueDate = new Date(`${bill.due_date}T00:00:00`)
+    return dueDate.getFullYear() === currentYear && dueDate.getMonth() + 1 === currentMonth
+  })
+  const upcomingBills = currentBills.filter((bill) => bill.status !== 'paid')
+  const savingsTrend = trend.length > 1 ? income - spent - (trend[trend.length - 2].income - trend[trend.length - 2].expense) : 0
   return (
     <div className="dashboard-page">
       {error && <div className="data-error">Could not load dashboard data: {error}</div>}
@@ -757,11 +1008,12 @@ function DashboardReal({ setPage, liveData }: { setPage: (p: Page) => void; live
           icon={TrendingUp}
           tone="lavender"
           trend={remaining >= 0 ? 'up' : 'down'}
+          trendValue={`${savingsTrend >= 0 ? '+' : '-'}${compactMoney(Math.abs(savingsTrend))} vs last month`}
         />
       </div>
       <div className="dashboard-grid top-panels">
         <SalaryUsage usage={usage} spent={spent} income={income} />
-        <FinancialScore />
+        <LiveFinancialScore income={income} spent={spent} budgets={liveBudgets} bills={currentBills} />
       </div>
       <div className="dashboard-grid charts-row">
         <LiveSpendingChart data={trend} />
@@ -777,17 +1029,18 @@ function DashboardReal({ setPage, liveData }: { setPage: (p: Page) => void; live
         </button>
       </div>
       <div className="budget-list">
-        {budgets.slice(0, 4).map((b) => (
+        {liveBudgets.slice(0, 4).map((b) => (
           <BudgetRow key={b.name} budget={b} />
         ))}
+        {liveBudgets.length === 0 && <div className="data-empty">No budgets created for this month.</div>}
       </div>
       <div className="dashboard-grid bottom-panels">
         <LiveRecentTransactions setPage={setPage} items={monthItems} />
-        <UpcomingBills setPage={setPage} />
+        <LiveUpcomingBills setPage={setPage} bills={upcomingBills} />
       </div>
       <div className="dashboard-grid final-panels">
-        <GoalsPreview setPage={setPage} />
-        <Insights />
+        <LiveGoalsPreview setPage={setPage} goals={goalRows} />
+        <LiveInsights categories={categories} budgets={liveBudgets} income={income} spent={spent} />
       </div>
     </div>
   )

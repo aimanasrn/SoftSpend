@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Bell,
   CalendarDays,
@@ -16,6 +16,8 @@ import {
   Plus,
   Settings,
   ShieldCheck,
+  LockKeyhole,
+  LogOut,
   Sparkles,
   Sun,
   Target,
@@ -36,10 +38,11 @@ import {
 } from 'recharts'
 import { budgets } from '../../data'
 import { money } from '../../lib/format'
-import type { AppIdentity } from '../../app/types'
+import type { AppIdentity, ProfileRecord } from '../../app/types'
 import { PageHeader } from '../../components/layout/AppShell'
 import { BudgetRow, CategoryBreakdown, FinancialScore } from '../dashboard/DashboardPage'
 import { SubscriptionPanel } from '../billing/SubscriptionPanel'
+import { supabase } from '../../lib/supabaseClient'
 
 function BudgetsPage() {
   return (
@@ -396,85 +399,259 @@ function ReportsPage() {
     </div>
   )
 }
-function SettingsPage({ theme, setTheme, isAuthenticated = false }: { theme: 'light' | 'dark'; setTheme: (t: 'light' | 'dark') => void; isAuthenticated?: boolean }) {
+type SettingsTab = 'general' | 'appearance' | 'notifications' | 'currency' | 'security'
+
+type SettingsPageProps = {
+  theme: 'light' | 'dark'
+  setTheme: (t: 'light' | 'dark') => void
+  isAuthenticated?: boolean
+  profile?: ProfileRecord | null
+  email?: string
+  onProfileSaved?: (profile: ProfileRecord) => void
+  onLogout?: () => void
+}
+
+const notificationDefaults = {
+  monthlySummary: true,
+  billReminders: true,
+  householdActivity: true,
+}
+
+function SettingsPage({
+  theme,
+  setTheme,
+  isAuthenticated = false,
+  profile,
+  email = '',
+  onProfileSaved,
+  onLogout,
+}: SettingsPageProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [currency, setCurrency] = useState(profile?.currency || 'MYR')
+  const [timezone, setTimezone] = useState(profile?.timezone || 'Asia/Kuala_Lumpur')
+  const [income, setIncome] = useState(String(profile?.default_income ?? ''))
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      return { ...notificationDefaults, ...JSON.parse(localStorage.getItem('softspend-notifications') || '{}') }
+    } catch {
+      return notificationDefaults
+    }
+  })
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setFullName(profile?.full_name || '')
+    setCurrency(profile?.currency || 'MYR')
+    setTimezone(profile?.timezone || 'Asia/Kuala_Lumpur')
+    setIncome(String(profile?.default_income ?? ''))
+  }, [profile?.id, profile?.full_name, profile?.currency, profile?.timezone, profile?.default_income])
+
+  const saveProfile = async () => {
+    const trimmedName = fullName.trim()
+    const parsedIncome = Number(income.replace(/,/g, ''))
+    if (!trimmedName) {
+      setError('Please enter your name.')
+      return
+    }
+    if (!Number.isFinite(parsedIncome) || parsedIncome < 0) {
+      setError('Monthly income must be a valid amount.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setNotice('')
+    const nextProfile = {
+      id: profile?.id || '',
+      full_name: trimmedName,
+      avatar_url: profile?.avatar_url || null,
+      currency,
+      timezone,
+      default_income: parsedIncome,
+    }
+
+    if (isAuthenticated && profile?.id) {
+      const { data, error: saveError } = await supabase
+        .from('profiles')
+        .update({ full_name: trimmedName, currency, timezone, default_income: parsedIncome })
+        .eq('id', profile.id)
+        .select('id,full_name,avatar_url,currency,timezone,default_income')
+        .single()
+      if (saveError) {
+        setError(saveError.message)
+        setSaving(false)
+        return
+      }
+      onProfileSaved?.(data as ProfileRecord)
+    } else {
+      localStorage.setItem('softspend-profile', JSON.stringify(nextProfile))
+      onProfileSaved?.(nextProfile)
+    }
+
+    setSaving(false)
+    setNotice('Settings saved successfully.')
+  }
+
+  const toggleNotification = (key: keyof typeof notificationDefaults) => {
+    const next = { ...notifications, [key]: !notifications[key] }
+    setNotifications(next)
+    localStorage.setItem('softspend-notifications', JSON.stringify(next))
+    setNotice('Notification preferences updated.')
+    setError('')
+  }
+
+  const sendPasswordReset = async () => {
+    if (!profile?.id) {
+      setError('Sign in with a real account to change your password.')
+      return
+    }
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/app/settings`,
+    })
+    if (resetError) setError(resetError.message)
+    else setNotice('Password reset instructions have been sent to your email.')
+  }
+
+  const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+    { id: 'general', label: 'General', icon: Settings },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'currency', label: 'Currency & dates', icon: CircleDollarSign },
+    { id: 'security', label: 'Security', icon: ShieldIcon },
+  ]
+
+  const profileEmail = isAuthenticated ? email || 'Your signed-in email' : 'Demo workspace'
+
   return (
     <div>
       <PageHeader eyebrow="Make SoftSpend yours" title="Settings" text="A few thoughtful defaults go a long way." />
       <div className="settings-layout">
         <aside className="settings-nav">
-          <button className="active">
-            <Settings size={17} /> General
-          </button>
-          <button>
-            <Palette size={17} /> Appearance
-          </button>
-          <button>
-            <Bell size={17} /> Notifications
-          </button>
-          <button>
-            <CircleDollarSign size={17} /> Currency & dates
-          </button>
-          <button>
-            <ShieldIcon /> Security
-          </button>
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={activeTab === id ? 'active' : ''} onClick={() => { setActiveTab(id); setNotice(''); setError('') }}>
+              <Icon size={17} /> {label}
+            </button>
+          ))}
         </aside>
         <div className="settings-content">
           <div className="panel settings-panel">
-            <div className="settings-section">
-              <span className="section-eyebrow">Profile</span>
-              <h2>Your workspace</h2>
-              <div className="profile-edit">
-                <div className="large-avatar">AS</div>
-                <div>
-                  <strong>Aiman Salleh</strong>
-                  <span>aiman@softspend.app</span>
-                  <button className="ghost-button small">Change photo</button>
-                </div>
-              </div>
-            </div>
-            {isAuthenticated && <SubscriptionPanel />}
-            <div className="settings-section">
-              <span className="section-eyebrow">Preferences</span>
-              <h2>Personal defaults</h2>
-              <div className="settings-fields">
-                <label>
-                  Preferred currency
-                  <select>
-                    <option>MYR — Malaysian Ringgit</option>
-                    <option>USD — US Dollar</option>
-                  </select>
-                </label>
-                <label>
-                  Timezone
-                  <select>
-                    <option>Asia/Kuala Lumpur (GMT+8)</option>
-                  </select>
-                </label>
-                <label>
-                  Monthly income
-                  <div className="amount-input">
-                    <span>RM</span>
-                    <input value="4,500" readOnly />
+            {activeTab === 'general' && <>
+              <div className="settings-section">
+                <span className="section-eyebrow">Profile</span>
+                <h2>Your workspace</h2>
+                <div className="profile-edit">
+                  <div className="large-avatar">{fullName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'SS'}</div>
+                  <div>
+                    <strong>{fullName || 'SoftSpend user'}</strong>
+                    <span>{profileEmail}</span>
                   </div>
+                </div>
+                <label className="settings-single-field">
+                  Display name
+                  <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Your name" />
                 </label>
               </div>
-            </div>
-            <div className="settings-section">
+              {isAuthenticated && <SubscriptionPanel />}
+              <div className="settings-section settings-section-actionless">
+                <span className="section-eyebrow">Quick start</span>
+                <h2>Keep your money habits personal</h2>
+                <p className="settings-helper">Your dashboard, budgets, and transactions use the preferences saved here.</p>
+              </div>
+            </>}
+
+            {activeTab === 'appearance' && <div className="settings-section">
               <span className="section-eyebrow">Appearance</span>
               <h2>Make it feel like home</h2>
+              <p className="settings-helper">Choose the visual mode that feels most comfortable for your money check-ins.</p>
               <div className="theme-options">
-                <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>
+                <button className={theme === 'light' ? 'active' : ''} onClick={() => { setTheme('light'); setNotice('Light mode enabled.') }}>
                   <Sun size={18} />
                   <strong>Light</strong>
                   <span>Soft and airy</span>
                 </button>
-                <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>
+                <button className={theme === 'dark' ? 'active' : ''} onClick={() => { setTheme('dark'); setNotice('Dark mode enabled.') }}>
                   <Moon size={18} />
                   <strong>Dark</strong>
                   <span>Calm and focused</span>
                 </button>
               </div>
-            </div>
+            </div>}
+
+            {activeTab === 'notifications' && <div className="settings-section">
+              <span className="section-eyebrow">Notifications</span>
+              <h2>Choose what reaches you</h2>
+              <p className="settings-helper">These preferences are saved in this browser and keep your reminders intentional.</p>
+              <div className="settings-toggle-list">
+                {[
+                  ['monthlySummary', 'Monthly summary', 'A gentle recap of income, spending, and savings.'],
+                  ['billReminders', 'Bill reminders', 'A reminder when a saved bill is coming due.'],
+                  ['householdActivity', 'Household activity', 'Updates when a shared item changes.'],
+                ].map(([key, title, description]) => (
+                  <label className="settings-toggle-row" key={key}>
+                    <span><strong>{title}</strong><small>{description}</small></span>
+                    <input type="checkbox" checked={notifications[key as keyof typeof notificationDefaults]} onChange={() => toggleNotification(key as keyof typeof notificationDefaults)} />
+                  </label>
+                ))}
+              </div>
+            </div>}
+
+            {activeTab === 'currency' && <div className="settings-section">
+              <span className="section-eyebrow">Currency & dates</span>
+              <h2>Set your monthly defaults</h2>
+              <p className="settings-helper">These values are stored with your profile and used as defaults when you create money records.</p>
+              <div className="settings-fields">
+                <label>
+                  Preferred currency
+                  <select value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                    <option value="MYR">MYR — Malaysian Ringgit</option>
+                    <option value="USD">USD — US Dollar</option>
+                  </select>
+                </label>
+                <label>
+                  Timezone
+                  <select value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+                    <option value="Asia/Kuala_Lumpur">Asia/Kuala Lumpur (GMT+8)</option>
+                    <option value="Asia/Singapore">Asia/Singapore (GMT+8)</option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </label>
+                <label>
+                  Monthly income
+                  <div className="amount-input">
+                    <span>{currency}</span>
+                    <input inputMode="decimal" value={income} onChange={(event) => setIncome(event.target.value)} placeholder="0.00" />
+                  </div>
+                </label>
+              </div>
+              <button className="primary-button settings-save-button" onClick={() => void saveProfile()} disabled={saving}>
+                {saving ? 'Saving...' : 'Save preferences'} <Check size={16} />
+              </button>
+            </div>}
+
+            {activeTab === 'security' && <div className="settings-section">
+              <span className="section-eyebrow">Security</span>
+              <h2>Keep your account protected</h2>
+              <div className="security-action">
+                <div className="security-action-icon"><LockKeyhole size={18} /></div>
+                <div><strong>Change password</strong><span>We will email a secure password reset link.</span></div>
+                <button className="ghost-button small" onClick={() => void sendPasswordReset()}>Send link</button>
+              </div>
+              <div className="security-action">
+                <div className="security-action-icon"><LogOut size={18} /></div>
+                <div><strong>Sign out</strong><span>End your current SoftSpend session.</span></div>
+                <button className="ghost-button small" onClick={onLogout}>Sign out</button>
+              </div>
+            </div>}
+
+            {activeTab !== 'appearance' && activeTab !== 'notifications' && activeTab !== 'security' && activeTab !== 'currency' && <div />}
+            {activeTab === 'general' && <button className="primary-button settings-save-button" onClick={() => void saveProfile()} disabled={saving}>
+              {saving ? 'Saving...' : 'Save profile'} <Check size={16} />
+            </button>}
+            {notice && <div className="settings-feedback success"><Check size={15} /> {notice}</div>}
+            {error && <div className="settings-feedback error">{error}</div>}
           </div>
         </div>
       </div>
@@ -491,13 +668,28 @@ function ProfileSettingsPage({
   profile,
   isAuthenticated = false,
   isPro = false,
+  profileRecord = null,
+  onProfileSaved,
+  onLogout,
 }: {
   theme: 'light' | 'dark'
   setTheme: (t: 'light' | 'dark') => void
   profile: AppIdentity
   isAuthenticated?: boolean
   isPro?: boolean
+  profileRecord?: ProfileRecord | null
+  onProfileSaved?: (profile: ProfileRecord) => void
+  onLogout?: () => void
 }) {
+  const settingsProfile: ProfileRecord = profileRecord || {
+    id: '',
+    full_name: profile.name,
+    avatar_url: null,
+    currency: 'MYR',
+    timezone: 'Asia/Kuala_Lumpur',
+    default_income: 4500,
+  }
+
   return (
     <div className="profile-aware-settings">
       <div className="profile-live-card">
@@ -511,7 +703,15 @@ function ProfileSettingsPage({
           <span>{profile.email}</span>
         </div>
       </div>
-      <SettingsPage theme={theme} setTheme={setTheme} isAuthenticated={isAuthenticated} />
+      <SettingsPage
+        theme={theme}
+        setTheme={setTheme}
+        isAuthenticated={isAuthenticated}
+        profile={settingsProfile}
+        email={profile.email}
+        onProfileSaved={onProfileSaved}
+        onLogout={onLogout}
+      />
     </div>
   )
 }

@@ -16,6 +16,47 @@ import './auth.css'
 
 type AuthMode = 'login' | 'signup' | 'reset'
 
+function getAuthErrorMessage(caught: unknown, mode: AuthMode) {
+  const error = caught as { message?: string; code?: string; status?: number }
+  const rawMessage = String(error?.message || '').toLowerCase()
+  const code = String(error?.code || '').toLowerCase()
+
+  if (rawMessage.includes('failed to fetch') || rawMessage.includes('network') || rawMessage.includes('fetch')) {
+    return 'We could not connect to SoftSpend. Check your internet connection and try again.'
+  }
+  if (rawMessage.includes('email rate limit') || code.includes('email_rate_limit') || rawMessage.includes('over_email_send_rate_limit')) {
+    return 'Too many email requests right now. Please wait a few minutes and try again.'
+  }
+  if (rawMessage.includes('rate limit') || rawMessage.includes('too many requests') || error?.status === 429) {
+    return 'Too many attempts right now. Please wait a few minutes before trying again.'
+  }
+  if (rawMessage.includes('invalid login credentials') || rawMessage.includes('invalid credentials')) {
+    return 'The email or password is incorrect. Check both and try again, or use “Forgot password?”.'
+  }
+  if (rawMessage.includes('email not confirmed') || rawMessage.includes('email_not_confirmed')) {
+    return 'Please confirm your email address from the message we sent before logging in.'
+  }
+  if (rawMessage.includes('already registered') || rawMessage.includes('user already exists') || code.includes('user_already_exists')) {
+    return 'An account with this email already exists. Try logging in instead.'
+  }
+  if (rawMessage.includes('invalid email')) {
+    return 'Enter a valid email address and try again.'
+  }
+  if (rawMessage.includes('password should be at least') || rawMessage.includes('password must be at least')) {
+    return 'Your password must be at least 6 characters long.'
+  }
+  if (rawMessage.includes('weak password')) {
+    return 'Choose a stronger password with a mix of letters, numbers, or symbols.'
+  }
+  if (mode === 'reset') {
+    return 'We could not send the reset email. Check the address and try again.'
+  }
+  if (mode === 'signup') {
+    return 'We could not create your account right now. Please check your details and try again.'
+  }
+  return 'We could not log you in right now. Please check your details and try again.'
+}
+
 export default function AuthPage({ onDemo, onBack }: { onDemo: () => void; onBack: () => void }) {
   const [mode, setMode] = useState<AuthMode>('login')
   const [fullName, setFullName] = useState('')
@@ -74,7 +115,7 @@ export default function AuthPage({ onDemo, onBack }: { onDemo: () => void; onBac
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Something went wrong. Please try again.')
+      setError(getAuthErrorMessage(caught, mode))
     } finally {
       setBusy(false)
     }

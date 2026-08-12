@@ -46,9 +46,9 @@ const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
 
 const proOnlyPages = new Set<Page>(['bills', 'goals', 'analytics', 'reports', 'household'])
 
-function Logo({ compact = false }: { compact?: boolean }) {
+function Logo({ compact = false, onClick }: { compact?: boolean; onClick?: React.MouseEventHandler<HTMLAnchorElement> }) {
   return (
-    <Link className="logo" to="/">
+    <Link className="logo" to="/" onClick={onClick} aria-label={compact ? 'Expand sidebar' : 'Go to SoftSpend home'}>
       <span className="logo-mark">
         <span />
       </span>
@@ -477,14 +477,48 @@ function AppShell({
   profile: AppIdentity
   isPro?: boolean
 }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => (
+    typeof window !== 'undefined' && window.innerWidth <= 800
+  ))
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const searchablePages = navItems.concat({ id: 'settings', label: 'Settings', icon: Settings })
+  const searchResults = searchablePages.filter((item) => item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+
+  const closeTopbarMenus = () => {
+    setNotificationOpen(false)
+    setProfileOpen(false)
+  }
+
+  const openSearch = () => {
+    closeTopbarMenus()
+    setSearchQuery('')
+    setSearchOpen(true)
+  }
+
+  const goToSearchResult = (nextPage: Page) => {
+    setPage(nextPage)
+    setSearchOpen(false)
+    setSearchQuery('')
+  }
+
   return (
     <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className="sidebar">
         <div className="side-logo">
-          <Logo compact={collapsed} />
+          <Logo
+            compact={collapsed}
+            onClick={(event) => {
+              if (collapsed) {
+                event.preventDefault()
+                setCollapsed(false)
+              }
+            }}
+          />
           <button className="collapse-button" onClick={() => setCollapsed(!collapsed)}>
             <Menu size={18} />
           </button>
@@ -522,14 +556,25 @@ function AppShell({
               </strong>
               <small>{profile.email || 'Personal workspace'}</small>
             </span>
-            <MoreHorizontal size={17} />
           </button>
         </div>
       </aside>
+      {!collapsed && (
+        <button
+          className="sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setCollapsed(true)}
+        />
+      )}
       <section className="app-main">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="mobile-menu" onClick={() => setCollapsed(!collapsed)}>
+            <button
+              className="mobile-menu"
+              aria-label={collapsed ? 'Open navigation' : 'Close navigation'}
+              aria-expanded={!collapsed}
+              onClick={() => setCollapsed(!collapsed)}
+            >
               <Menu size={20} />
             </button>
             <div className="breadcrumb">
@@ -538,36 +583,86 @@ function AppShell({
             </div>
           </div>
           <div className="topbar-actions">
-            <button className="icon-button search-trigger" aria-label="Search" onClick={() => setSearchOpen(true)}>
+            <button className="icon-button search-trigger" aria-label="Search" onClick={openSearch}>
               <Search size={18} />
             </button>
             <button
               className="icon-button"
               aria-label="Toggle theme"
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              onClick={() => { closeTopbarMenus(); setTheme(theme === 'light' ? 'dark' : 'light') }}
             >
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            <button className="icon-button notification-button">
+            <button
+              className={`icon-button notification-button ${notificationOpen ? 'active' : ''}`}
+              aria-label="Notifications"
+              aria-expanded={notificationOpen}
+              onClick={() => { setNotificationOpen(!notificationOpen); setProfileOpen(false) }}
+            >
               <Bell size={18} />
-              <i />
+              {!notificationOpen && <i />}
             </button>
-            <div className="top-profile-avatar">
+            <button
+              className={`top-profile-avatar user-menu-trigger ${profileOpen ? 'active' : ''}`}
+              aria-label="Open profile menu"
+              aria-expanded={profileOpen}
+              onClick={() => { setProfileOpen(!profileOpen); setNotificationOpen(false) }}
+            >
               <div className="top-avatar">{profile.initials}</div>
               {isPro && <span className="pro-badge top-pro-badge">Pro</span>}
-            </div>
+            </button>
+            {notificationOpen && (
+              <div className="topbar-popover notification-popover">
+                <div className="topbar-popover-heading">
+                  <div>
+                    <span className="section-eyebrow">Updates</span>
+                    <h3>Notifications</h3>
+                  </div>
+                  <span className="notification-status">All clear</span>
+                </div>
+                <div className="notification-empty">
+                  <div className="notification-empty-icon"><Bell size={17} /></div>
+                  <strong>You’re all caught up</strong>
+                  <span>New reminders and account updates will appear here.</span>
+                </div>
+                <button className="link-button topbar-popover-link" onClick={() => { setNotificationOpen(false); setPage('settings') }}>
+                  Manage notification preferences <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+            {profileOpen && (
+              <div className="topbar-popover profile-popover">
+                <div className="profile-popover-heading">
+                  <div className="avatar profile-popover-avatar">{profile.initials}</div>
+                  <div>
+                    <strong>{profile.name}</strong>
+                    <span>{profile.email || 'Personal workspace'}</span>
+                  </div>
+                </div>
+                <div className="profile-popover-plan">
+                  <span>{isPro ? 'SoftSpend Pro' : 'Free plan'}</span>
+                  <small>{isPro ? 'Your Pro access is active' : 'Dashboard, Budgets & Transactions'}</small>
+                </div>
+                <button className="profile-popover-action" onClick={() => { setProfileOpen(false); setPage('settings') }}>
+                  <Settings size={15} /> Account settings <ChevronRight size={14} />
+                </button>
+                <button className="profile-popover-action danger" onClick={onLogout}>
+                  <LogOut size={15} /> Sign out
+                </button>
+              </div>
+            )}
           </div>
         </header>
         <main className="page-content">{children}</main>
       </section>
       <nav className="mobile-nav">
-        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
+        {navItems.slice(0, 4).map(({ id, label, icon: Icon }) => (
           <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}>
             <Icon size={19} />
             <span>{label}</span>
           </button>
         ))}
-        <button onClick={() => setAddOpen(true)}>
+        <button className={moreOpen ? 'active' : ''} onClick={() => setMoreOpen(true)}>
           <MoreHorizontal size={19} />
           <span>More</span>
         </button>
@@ -575,16 +670,71 @@ function AppShell({
       <button className="floating-add" onClick={() => setAddOpen(true)}>
         <Plus size={25} />
       </button>
+      {moreOpen && (
+        <div className="overlay" onClick={() => setMoreOpen(false)}>
+          <div className="quick-sheet more-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-head">
+              <div>
+                <span className="section-eyebrow">Workspace</span>
+                <h2>More</h2>
+              </div>
+              <button className="icon-button" aria-label="Close more menu" onClick={() => setMoreOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="quick-grid more-grid">
+              {navItems.slice(4).concat({ id: 'settings', label: 'Settings', icon: Settings }).map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  className={page === id ? 'active' : ''}
+                  onClick={() => {
+                    setPage(id)
+                    setMoreOpen(false)
+                  }}
+                >
+                  <span className="quick-icon lavender"><Icon size={19} /></span>
+                  <span>{label}</span>
+                  {proOnlyPages.has(id) && !isPro && <span className="more-pro-label"><LockKeyhole size={11} /> Pro</span>}
+                  <ChevronRight size={16} />
+                </button>
+              ))}
+              <button className="more-signout" onClick={onLogout}>
+                <span className="quick-icon peach"><LogOut size={19} /></span>
+                <span>Sign out</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {searchOpen && (
         <div className="overlay" onClick={() => setSearchOpen(false)}>
           <div className="command" onClick={(e) => e.stopPropagation()}>
             <div className="command-input">
               <Search size={18} />
-              <input autoFocus placeholder="Search transactions, bills, goals..." />
-              <kbd>ESC</kbd>
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false) }}
+                placeholder="Search pages and tools..."
+              />
+              <button className="command-close" aria-label="Close search" onClick={() => setSearchOpen(false)}>ESC</button>
             </div>
-            <div className="command-hint">
-              <Sparkles size={15} /> Try searching for “Netflix”
+            <div className="command-results">
+              <span className="command-results-label">{searchQuery ? 'Matching pages' : 'Jump to a section'}</span>
+              {searchResults.length > 0 ? searchResults.map(({ id, label, icon: Icon }) => (
+                <button key={id} className="command-result" onClick={() => goToSearchResult(id)}>
+                  <span className="command-result-icon"><Icon size={15} /></span>
+                  <span>{label}</span>
+                  <ChevronRight size={14} />
+                </button>
+              )) : (
+                <div className="command-no-results">
+                  <Sparkles size={15} /> No matching page found.
+                </div>
+              )}
             </div>
           </div>
         </div>
