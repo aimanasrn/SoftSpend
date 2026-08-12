@@ -1,9 +1,10 @@
 // @ts-nocheck
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import AuthPage from './auth/AuthPage'
+import { useIdleLogout } from './auth/useIdleLogout'
 import { LiveAnalyticsPage } from './features/analytics/LiveAnalyticsPage'
 import { LiveBillsPage } from './features/bills/LiveBillsPage'
 import { LiveBudgetsPage } from './features/budgets/LiveBudgetsPage'
@@ -36,6 +37,8 @@ const appPages: Page[] = [
   'household',
   'settings',
 ]
+
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000
 
 function pageFromPath(pathname: string): Page {
   const candidate = pathname.split('/')[2] as Page
@@ -132,13 +135,14 @@ export default function App() {
     const nextPath = `/app/${nextPage}`
     if (location.pathname !== nextPath) navigate(nextPath)
   }
-  const logout = async () => {
+  const logout = useCallback(async () => {
     if (session) await supabase.auth.signOut()
     setDemoMode(false)
     setAuthOpen(false)
     setPageState('dashboard')
     navigate('/')
-  }
+  }, [navigate, session])
+  useIdleLogout({ enabled: Boolean(session), timeoutMs: IDLE_TIMEOUT_MS, onIdle: logout })
   const content = useMemo(() => {
     switch (page) {
       case 'transactions':
@@ -156,7 +160,7 @@ export default function App() {
       case 'household':
         return session ? <LiveHouseholdPage /> : <HouseholdPage />
       case 'settings':
-        return <ProfileSettingsPage theme={theme} setTheme={setThemeSafe} profile={identity} />
+        return <ProfileSettingsPage theme={theme} setTheme={setThemeSafe} profile={identity} isAuthenticated={Boolean(session)} />
       default:
         return <DashboardReal setPage={setPage} liveData={Boolean(session)} />
     }

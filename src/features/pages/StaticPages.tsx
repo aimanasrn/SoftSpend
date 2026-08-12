@@ -39,6 +39,7 @@ import { money } from '../../lib/format'
 import type { AppIdentity } from '../../app/types'
 import { PageHeader } from '../../components/layout/AppShell'
 import { BudgetRow, CategoryBreakdown, FinancialScore } from '../dashboard/DashboardPage'
+import { SubscriptionPanel } from '../billing/SubscriptionPanel'
 
 function BudgetsPage() {
   return (
@@ -395,7 +396,7 @@ function ReportsPage() {
     </div>
   )
 }
-function SettingsPage({ theme, setTheme }: { theme: 'light' | 'dark'; setTheme: (t: 'light' | 'dark') => void }) {
+function SettingsPage({ theme, setTheme, isAuthenticated = false }: { theme: 'light' | 'dark'; setTheme: (t: 'light' | 'dark') => void; isAuthenticated?: boolean }) {
   return (
     <div>
       <PageHeader eyebrow="Make SoftSpend yours" title="Settings" text="A few thoughtful defaults go a long way." />
@@ -431,6 +432,7 @@ function SettingsPage({ theme, setTheme }: { theme: 'light' | 'dark'; setTheme: 
                 </div>
               </div>
             </div>
+            {isAuthenticated && <SubscriptionPanel />}
             <div className="settings-section">
               <span className="section-eyebrow">Preferences</span>
               <h2>Personal defaults</h2>
@@ -487,10 +489,12 @@ function ProfileSettingsPage({
   theme,
   setTheme,
   profile,
+  isAuthenticated = false,
 }: {
   theme: 'light' | 'dark'
   setTheme: (t: 'light' | 'dark') => void
   profile: AppIdentity
+  isAuthenticated?: boolean
 }) {
   return (
     <div className="profile-aware-settings">
@@ -502,7 +506,7 @@ function ProfileSettingsPage({
           <span>{profile.email}</span>
         </div>
       </div>
-      <SettingsPage theme={theme} setTheme={setTheme} />
+      <SettingsPage theme={theme} setTheme={setTheme} isAuthenticated={isAuthenticated} />
     </div>
   )
 }
