@@ -8,6 +8,8 @@ export type Transaction = {
   type: 'expense' | 'income'
   icon: string
   color: string
+  budgetId?: string
+  budgetName?: string
 }
 export type Budget = { name: string; category: string; limit: number; spent: number; color: string; target?: string }
 

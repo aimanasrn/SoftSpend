@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownRight,
   Car,
@@ -25,6 +25,7 @@ import { PageHeader } from '../../components/layout/AppShell'
 import { RowActions } from '../../components/data/RowActions'
 import { ConfirmDeleteDialog } from '../shared/LivePagePrimitives'
 import { VisibilityToggle } from '../../components/data/VisibilityToggle'
+import { getSessionErrorMessage, isSessionError, recoverSession } from '../../lib/auth'
 
 function TransactionRow({ transaction: t }: { transaction: Transaction }) {
   const Icon =
@@ -68,6 +69,7 @@ const mapLiveTransaction = (row: any): Transaction => {
     id: row.id,
     categoryId: row.category_id,
     budgetId: row.budget_id,
+    budgetName: row.budget?.name || '',
     householdId: row.household_id,
     createdBy: row.created_by,
     rawDate: row.transaction_date,
@@ -92,6 +94,10 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
   const [deleting, setDeleting] = useState<any>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState('All categories')
+  const [methodFilter, setMethodFilter] = useState('All methods')
   const [exported, setExported] = useState(false)
   const load = async () => {
     if (!liveData) {
@@ -101,14 +107,27 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
     }
     setLoading(true)
     setError('')
-    const { data, error: queryError } = await supabase
+    let { data, error: queryError } = await supabase
       .from('transactions')
       .select(
-        'id,type,amount,description,transaction_date,payment_method,visibility,household_id,created_by,category_id,budget_id,category:categories(name)',
+        'id,type,amount,description,transaction_date,payment_method,visibility,household_id,created_by,category_id,budget_id,category:categories(name),budget:budgets(name)',
       )
       .order('transaction_date', { ascending: false })
+    if (queryError && isSessionError(queryError)) {
+      const recovered = await recoverSession()
+      if (recovered) {
+        const retry = await supabase
+          .from('transactions')
+          .select(
+            'id,type,amount,description,transaction_date,payment_method,visibility,household_id,created_by,category_id,budget_id,category:categories(name),budget:budgets(name)',
+          )
+          .order('transaction_date', { ascending: false })
+        data = retry.data
+        queryError = retry.error
+      }
+    }
     if (queryError) {
-      setError(queryError.message)
+      setError(isSessionError(queryError) ? getSessionErrorMessage(queryError) : queryError.message)
       setItems([])
     } else setItems((data || []).map(mapLiveTransaction))
     setLoading(false)
@@ -128,7 +147,29 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
     }
     setDeleteBusy(false)
   }
-  const filtered = items.filter((t) => filter === 'All' || t.type === filter.toLowerCase())
+  const categories = useMemo(
+    () => ['All categories', ...Array.from(new Set(items.map((item) => item.category).filter(Boolean))).sort()],
+    [items],
+  )
+  const methods = useMemo(
+    () => ['All methods', ...Array.from(new Set(items.map((item) => item.method).filter(Boolean))).sort()],
+    [items],
+  )
+  const filtered = items.filter((t) => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const matchesType = filter === 'All' || t.type === filter.toLowerCase()
+    const matchesCategory = categoryFilter === 'All categories' || t.category === categoryFilter
+    const matchesMethod = methodFilter === 'All methods' || t.method === methodFilter
+    const matchesSearch = !normalizedQuery || [t.merchant, t.category, t.method, t.date].some((value) =>
+      String(value || '').toLowerCase().includes(normalizedQuery),
+    )
+    return matchesType && matchesCategory && matchesMethod && matchesSearch
+  })
+  const activeFilterCount = Number(categoryFilter !== 'All categories') + Number(methodFilter !== 'All methods')
+  const clearFilters = () => {
+    setCategoryFilter('All categories')
+    setMethodFilter('All methods')
+  }
   const downloadTransactions = () => {
     if (filtered.length === 0) return
 
@@ -173,7 +214,12 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
       <div className="toolbar">
         <div className="search-field">
           <Search size={16} />
-          <input placeholder="Search transactions" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search transactions"
+            aria-label="Search transactions"
+          />
         </div>
         <div className="filter-tabs">
           {['All', 'Expense', 'Income'].map((f) => (
@@ -182,8 +228,12 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
             </button>
           ))}
         </div>
-        <button className="filter-button">
-          <SlidersHorizontal size={16} /> Filters
+        <button
+          className={`filter-button ${filtersOpen || activeFilterCount ? 'active' : ''}`}
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+        >
+          <SlidersHorizontal size={16} /> Filters {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
         </button>
         <button
           className="icon-button"
@@ -195,6 +245,23 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
           <Download size={17} />
         </button>
       </div>
+      {filtersOpen && (
+        <div className="transaction-filters">
+          <label>
+            Category
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              {categories.map((category) => <option key={category}>{category}</option>)}
+            </select>
+          </label>
+          <label>
+            Payment method
+            <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)}>
+              {methods.map((method) => <option key={method}>{method}</option>)}
+            </select>
+          </label>
+          <button className="link-button" onClick={clearFilters} disabled={!activeFilterCount}>Clear filters</button>
+        </div>
+      )}
       {error && <div className="data-error">Could not load transactions: {error}</div>}
       <div className="panel table-panel">
         <div className="table-head">
@@ -219,7 +286,10 @@ function TransactionsPage({ liveData = false }: { liveData?: boolean }) {
                 </div>
                 <strong>{t.merchant}</strong>
               </span>
-              <span className="category-chip">{t.category}</span>
+              <span className="transaction-category-cell">
+                <span className="category-chip">{t.category}</span>
+                {t.budgetName && <small className="budget-link-chip"><WalletCards size={11} /> {t.budgetName}</small>}
+              </span>
               <span>{t.method}</span>
               <strong className={t.type === 'income' ? 'income-text' : ''}>
                 {t.type === 'income' ? '+' : '-'}

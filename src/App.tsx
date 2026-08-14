@@ -1,32 +1,34 @@
 // @ts-nocheck
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import AuthPage from './auth/AuthPage'
 import { useIdleLogout } from './auth/useIdleLogout'
-import { LiveAnalyticsPage } from './features/analytics/LiveAnalyticsPage'
-import { LiveBillsPage } from './features/bills/LiveBillsPage'
-import { LiveBudgetsPage } from './features/budgets/LiveBudgetsPage'
-import { LiveGoalsPage } from './features/goals/LiveGoalsPage'
-import { LiveReportsPage } from './features/reports/LiveReportsPage'
 import { AppShell } from './components/layout/AppShell'
 import { Landing } from './components/landing/Landing'
-import { HouseholdPage } from './features/household/HouseholdPage'
-import { LiveHouseholdPage } from './features/household/LiveHouseholdPage'
-import { DashboardReal } from './features/dashboard/DashboardPage'
-import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { useSubscriptionStatus } from './features/billing/useSubscriptionStatus'
 import { ProFeatureGate } from './features/billing/ProFeatureGate'
-import {
-  AnalyticsPage,
-  BillsPage,
-  BudgetsPage,
-  GoalsPage,
-  ProfileSettingsPage,
-  ReportsPage,
-} from './features/pages/StaticPages'
 import type { AppIdentity, Page, ProfileRecord } from './app/types'
+
+const lazyNamed = (loader: () => Promise<any>, exportName: string) =>
+  lazy(() => loader().then((module) => ({ default: module[exportName] })))
+
+const DashboardReal = lazyNamed(() => import('./features/dashboard/DashboardPage'), 'DashboardReal')
+const TransactionsPage = lazyNamed(() => import('./features/transactions/TransactionsPage'), 'TransactionsPage')
+const LiveAnalyticsPage = lazyNamed(() => import('./features/analytics/LiveAnalyticsPage'), 'LiveAnalyticsPage')
+const LiveBillsPage = lazyNamed(() => import('./features/bills/LiveBillsPage'), 'LiveBillsPage')
+const LiveBudgetsPage = lazyNamed(() => import('./features/budgets/LiveBudgetsPage'), 'LiveBudgetsPage')
+const LiveGoalsPage = lazyNamed(() => import('./features/goals/LiveGoalsPage'), 'LiveGoalsPage')
+const LiveReportsPage = lazyNamed(() => import('./features/reports/LiveReportsPage'), 'LiveReportsPage')
+const HouseholdPage = lazyNamed(() => import('./features/household/HouseholdPage'), 'HouseholdPage')
+const LiveHouseholdPage = lazyNamed(() => import('./features/household/LiveHouseholdPage'), 'LiveHouseholdPage')
+const AnalyticsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'AnalyticsPage')
+const BillsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'BillsPage')
+const BudgetsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'BudgetsPage')
+const GoalsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'GoalsPage')
+const ProfileSettingsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'ProfileSettingsPage')
+const ReportsPage = lazyNamed(() => import('./features/pages/StaticPages'), 'ReportsPage')
 
 const appPages: Page[] = [
   'dashboard',
@@ -203,7 +205,9 @@ export default function App() {
   }
   return (
     <AppShell page={page} setPage={setPage} theme={theme} setTheme={setThemeSafe} onLogout={logout} profile={identity} isPro={isPro}>
-      {content}
+      <Suspense fallback={<div className="page-loading" role="status">Loading your workspace…</div>}>
+        {content}
+      </Suspense>
     </AppShell>
   )
 }

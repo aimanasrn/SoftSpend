@@ -12,6 +12,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { getSessionErrorMessage, isSessionError } from '../lib/auth'
 import './auth.css'
 
 type AuthMode = 'login' | 'signup' | 'reset'
@@ -115,7 +116,7 @@ export default function AuthPage({ onDemo, onBack }: { onDemo: () => void; onBac
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
     } catch (caught) {
-      setError(getAuthErrorMessage(caught, mode))
+      setError(isSessionError(caught) ? getSessionErrorMessage(caught) : getAuthErrorMessage(caught, mode))
     } finally {
       setBusy(false)
     }

@@ -103,6 +103,32 @@
   }
 }
 
+.page-loading {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.transaction-category-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.budget-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #7569de;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .profile-live-card > div:last-child {
   display: flex;
   flex-direction: column;
@@ -927,6 +953,78 @@
 
   .security-action .ghost-button {
     margin-left: auto;
+  }
+}
+
+.transaction-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 13px 15px;
+  margin: -6px 0 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: var(--shadow);
+}
+
+.transaction-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.transaction-filters select {
+  min-width: 175px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.transaction-filters .link-button {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.filter-button.active {
+  border-color: #a59bfb;
+  background: #f4f2ff;
+  color: #7569de;
+}
+
+.filter-button b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #7569de;
+  color: #fff;
+  font-size: 9px;
+}
+
+@media (max-width: 800px) {
+  .transaction-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transaction-filters select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .transaction-filters .link-button {
+    margin-left: 0;
+    align-self: flex-start;
   }
 }
 

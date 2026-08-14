@@ -30,7 +30,6 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import type { AppIdentity, Page } from '../../app/types'
 
 const navItems: { id: Page; label: string; icon: React.ElementType }[] = [
@@ -832,6 +831,7 @@ function ExcelImportInline() {
       return
     }
     try {
+      const XLSX = await import('xlsx')
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
       const parsed = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' }) as string[][]
