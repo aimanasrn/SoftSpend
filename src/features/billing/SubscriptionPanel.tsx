@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, CreditCard, ExternalLink, LoaderCircle, Sparkles } from 'lucide-react'
+import { Check, CheckCircle2, CircleX, Clock3, CreditCard, ExternalLink, LoaderCircle, Sparkles, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 
 type SubscriptionRecord = {
@@ -9,6 +9,7 @@ type SubscriptionRecord = {
 }
 
 const proStatuses = new Set(['active', 'trialing'])
+type BillingResult = 'success' | 'cancelled' | 'processing' | 'error' | null
 
 export function SubscriptionPanel() {
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null)
@@ -16,6 +17,8 @@ export function SubscriptionPanel() {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [billingResult, setBillingResult] = useState<BillingResult>(null)
+  const [billingResultMessage, setBillingResultMessage] = useState('')
 
   const loadSubscription = async () => {
     setLoading(true)
@@ -29,10 +32,64 @@ export function SubscriptionPanel() {
   }
 
   useEffect(() => {
-    void loadSubscription()
     const billingResult = new URLSearchParams(window.location.search).get('billing')
-    if (billingResult === 'success') setNotice('Checkout completed. Your Pro status will appear as soon as Stripe confirms the subscription.')
-    if (billingResult === 'cancelled') setNotice('Checkout was cancelled. No payment was taken.')
+    if (billingResult) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('billing')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+
+    let cancelled = false
+    let retryTimer: number | undefined
+    let attempts = 0
+
+    const refreshAfterCheckout = async () => {
+      const { data, error: loadError } = await supabase
+        .from('subscriptions')
+        .select('status,current_period_end,cancel_at_period_end')
+        .maybeSingle()
+
+      if (cancelled) return
+      if (loadError) {
+        setLoading(false)
+        setBillingResult('error')
+        setBillingResultMessage('We could not confirm your subscription yet. Please refresh Settings in a moment.')
+        return
+      }
+
+      setSubscription(data)
+      setLoading(false)
+      if (data && proStatuses.has(data.status)) {
+        setBillingResult('success')
+        setBillingResultMessage('Your SoftSpend Pro subscription is active. Pro features are now unlocked.')
+        return
+      }
+
+      attempts += 1
+      if (attempts < 8) {
+        retryTimer = window.setTimeout(() => void refreshAfterCheckout(), 2000)
+      } else {
+        setBillingResult('processing')
+        setBillingResultMessage('Stripe received your checkout, but activation is still processing. Please refresh Settings shortly.')
+      }
+    }
+
+    if (billingResult === 'success') {
+      setBillingResult('processing')
+      setBillingResultMessage('We are confirming your payment and activating Pro…')
+      void refreshAfterCheckout()
+    } else if (billingResult === 'cancelled') {
+      setBillingResult('cancelled')
+      setBillingResultMessage('Checkout was cancelled. No payment was taken and your account remains on the Free plan.')
+      void loadSubscription()
+    } else {
+      void loadSubscription()
+    }
+
+    return () => {
+      cancelled = true
+      if (retryTimer) window.clearTimeout(retryTimer)
+    }
   }, [])
 
   const isPro = Boolean(subscription && proStatuses.has(subscription.status))
@@ -46,12 +103,14 @@ export function SubscriptionPanel() {
     setNotice('')
     const { data, error: functionError } = await supabase.functions.invoke(functionName, { body: {} })
     if (functionError || data?.error) {
-      setError(data?.error || functionError?.message || 'Unable to open billing.')
+      setBillingResult('error')
+      setBillingResultMessage(data?.error || functionError?.message || 'We could not open the billing page. Please try again.')
       setWorking(false)
       return
     }
     if (!data?.url) {
-      setError('The billing service did not return a checkout link.')
+      setBillingResult('error')
+      setBillingResultMessage('We could not open the billing page. Please try again.')
       setWorking(false)
       return
     }
@@ -103,6 +162,24 @@ export function SubscriptionPanel() {
       {notice && <div className="subscription-notice">{notice}</div>}
       {error && <div className="subscription-error">{error}</div>}
       {!loading && !subscription && <p className="subscription-footnote">You are currently using the free plan. Upgrade whenever you are ready.</p>}
+      {billingResult && (
+        <div className="overlay" onClick={() => setBillingResult(null)}>
+          <div className="billing-result-modal" role="dialog" aria-modal="true" aria-labelledby="billing-result-title" onClick={(event) => event.stopPropagation()}>
+            <button className="billing-result-close" aria-label="Close" onClick={() => setBillingResult(null)}><X size={17} /></button>
+            <div className={`billing-result-icon ${billingResult}`}>
+              {billingResult === 'success' ? <CheckCircle2 size={28} /> : billingResult === 'cancelled' || billingResult === 'error' ? <CircleX size={28} /> : <Clock3 size={28} />}
+            </div>
+            <span className="section-eyebrow">Billing update</span>
+            <h2 id="billing-result-title">
+              {billingResult === 'success' ? 'You are now on Pro' : billingResult === 'cancelled' ? 'Checkout cancelled' : billingResult === 'error' ? 'Subscription not completed' : 'Activating Pro'}
+            </h2>
+            <p>{billingResultMessage}</p>
+            <button className="primary-button small billing-result-button" onClick={() => setBillingResult(null)}>
+              {billingResult === 'success' ? 'Continue to Settings' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

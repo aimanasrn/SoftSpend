@@ -17,6 +17,11 @@ Deno.serve(async (req) => {
     if (!secretKey || !priceId || !siteUrl) {
       return json({ error: "Billing is not configured yet. Add STRIPE_SECRET_KEY, STRIPE_PRICE_ID, and SITE_URL to Supabase Function secrets." }, 503)
     }
+    const settingsUrl = new URL("/app/settings", siteUrl)
+    const successUrl = new URL(settingsUrl)
+    successUrl.searchParams.set("billing", "success")
+    const cancelledUrl = new URL(settingsUrl)
+    cancelledUrl.searchParams.set("billing", "cancelled")
 
     const stripe = new Stripe(secretKey, { apiVersion: stripeApiVersion })
     const db = adminClient()
@@ -49,8 +54,8 @@ Deno.serve(async (req) => {
       client_reference_id: user.id,
       metadata: { user_id: user.id },
       subscription_data: { metadata: { user_id: user.id } },
-      success_url: `${siteUrl.replace(/\/$/, "")}/app/settings?billing=success`,
-      cancel_url: `${siteUrl.replace(/\/$/, "")}/app/settings?billing=cancelled`,
+      success_url: successUrl.toString(),
+      cancel_url: cancelledUrl.toString(),
     })
 
     return json({ url: session.url })

@@ -25,6 +25,18 @@ function getAuthErrorMessage(caught: unknown, mode: AuthMode) {
   if (rawMessage.includes('failed to fetch') || rawMessage.includes('network') || rawMessage.includes('fetch')) {
     return 'We could not connect to SoftSpend. Check your internet connection and try again.'
   }
+  if (
+    rawMessage.includes('authentication credentials invalid') ||
+    rawMessage.includes('domain is not verified') ||
+    rawMessage.includes('verify your domain') ||
+    rawMessage.includes('smtp') ||
+    rawMessage.includes('535') ||
+    (mode === 'signup' && error?.status === 500)
+  ) {
+    return mode === 'signup'
+      ? 'We could not finish registration because the confirmation email service is temporarily unavailable. Please try again later.'
+      : 'The email service is temporarily unavailable. Please try again later.'
+  }
   if (rawMessage.includes('email rate limit') || code.includes('email_rate_limit') || rawMessage.includes('over_email_send_rate_limit')) {
     return 'Too many email requests right now. Please wait a few minutes and try again.'
   }

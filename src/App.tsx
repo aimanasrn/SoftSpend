@@ -200,7 +200,13 @@ export default function App() {
       </div>
     )
   if (!session && !demoMode) {
-    if (authOpen) return <AuthPage onDemo={enterApp} onBack={() => setAuthOpen(false)} />
+    const isAppRoute = location.pathname.startsWith('/app/')
+    if (authOpen || isAppRoute) {
+      return <AuthPage onDemo={enterApp} onBack={() => {
+        setAuthOpen(false)
+        if (isAppRoute) navigate('/')
+      }} />
+    }
     return <Landing onEnter={() => setAuthOpen(true)} />
   }
   return (
