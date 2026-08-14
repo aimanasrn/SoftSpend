@@ -19,6 +19,11 @@ import {
   X,
 } from 'lucide-react'
 import { Logo } from '../layout/AppShell'
+import { Aurora } from '../reactbits/Aurora'
+import { BlurText } from '../reactbits/BlurText'
+import { ScrollReveal } from '../reactbits/ScrollReveal'
+import Scanner from '../reactbits/Scanner'
+import { ShinyText } from '../reactbits/ShinyText'
 
 function Landing({ onEnter }: { onEnter: () => void }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -70,13 +75,24 @@ function Landing({ onEnter }: { onEnter: () => void }) {
         )}
       </header>
       <main>
-        <section className="hero wrap">
+        <section className="hero">
+          <Scanner
+            className="hero-scanner"
+            color1="#766cf0"
+            color2="#b7a6ff"
+            color3="#fff"
+            speed={0.6}
+            opacity={0.65}
+            mouseInteraction
+          />
+          <div className="hero-inner wrap">
           <div className="hero-copy">
-            <h1>
-              Take control
-              <br />
-              of your <em>money.</em>
-            </h1>
+            <div className="hero-title" role="heading" aria-level={1}>
+              <BlurText text="Take control" delay={70} />
+              <div className="hero-title-line">
+                <BlurText text="of your" delay={95} /> <em>money.</em>
+              </div>
+            </div>
             <p>
               Plan your monthly budget, track expenses, monitor your salary usage and build better financial habits —
               all in one simple dashboard.
@@ -95,14 +111,23 @@ function Landing({ onEnter }: { onEnter: () => void }) {
                 <i />
                 <i />
               </span>
-              <span>Simple monthly budgeting for everyday life.</span>
+              <ShinyText
+                text="Simple monthly budgeting for everyday life."
+                className="hero-shiny-text"
+                speed={4.8}
+                color="#778092"
+                shineColor="#8b80f9"
+                pauseOnHover
+              />
             </div>
           </div>
           <div className="hero-product">
+            <Aurora className="hero-aurora" />
             <div className="hero-orb orb-one" />
             <div className="hero-orb orb-two" />
-            <div className="mini-dashboard">
-              <div className="mini-side">
+            <div className="hero-dashboard-float">
+              <div className="mini-dashboard">
+                <div className="mini-side">
                 <div className="mini-logo">
                   <span className="logo-mark">
                     <span />
@@ -113,8 +138,8 @@ function Landing({ onEnter }: { onEnter: () => void }) {
                 <div className="mini-nav" />
                 <div className="mini-nav" />
                 <div className="mini-nav" />
-              </div>
-              <div className="mini-main">
+                </div>
+                <div className="mini-main">
                 <div className="mini-top">
                   <div>
                     <div className="mini-kicker">
@@ -192,11 +217,13 @@ function Landing({ onEnter }: { onEnter: () => void }) {
                     ))}
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </div>
+          </div>
         </section>
-        <section className="trust-strip wrap">
+        <ScrollReveal className="trust-strip wrap" distance={18}>
           <span>Everything you need to feel good about your money.</span>
           <div>
             <span>
@@ -209,9 +236,9 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               <Check size={15} /> Your data, your control
             </span>
           </div>
-        </section>
+        </ScrollReveal>
         <section id="features" className="section wrap">
-          <div className="section-intro">
+          <ScrollReveal className="section-intro">
             <span className="section-eyebrow">A calmer way to budget</span>
             <h2>
               All your money,
@@ -222,8 +249,8 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               SoftSpend keeps your salary, spending, bills and goals in one peaceful place — so you can make decisions
               with confidence.
             </p>
-          </div>
-          <div className="feature-grid">
+          </ScrollReveal>
+          <ScrollReveal className="feature-grid" delay={0.08} distance={22}>
             <Feature
               icon={WalletCards}
               title="Monthly Budgeting"
@@ -246,10 +273,10 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               text="Bring in your existing records in a few clicks."
               tint="blue"
             />
-          </div>
+          </ScrollReveal>
         </section>
         <section id="how" className="how-band">
-          <div className="wrap how-content">
+          <ScrollReveal className="wrap how-content">
             <div className="section-intro">
               <span className="section-eyebrow">Four steps to clarity</span>
               <h2>
@@ -264,9 +291,9 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               <Step n="03" title="Track expenses" text="Record your spending throughout the month." />
               <Step n="04" title="Improve your finances" text="Use insights to make better decisions." />
             </div>
-          </div>
+          </ScrollReveal>
         </section>
-        <section id="pricing" className="pricing-section wrap">
+        <ScrollReveal id="pricing" className="pricing-section wrap" distance={24}>
           <div className="pricing-intro">
             <span className="section-eyebrow">Simple pricing</span>
             <h2>
@@ -312,8 +339,8 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               <small className="price-note">Create your account first. Upgrade anytime from Settings.</small>
             </div>
           </div>
-        </section>
-        <section id="benefits" className="cta-section wrap">
+        </ScrollReveal>
+        <ScrollReveal id="benefits" className="cta-section wrap" distance={24}>
           <div>
             <h2>
               Feel better about
@@ -347,13 +374,13 @@ function Landing({ onEnter }: { onEnter: () => void }) {
               </div>
             </div>
           </div>
-        </section>
+        </ScrollReveal>
         <section id="faq" className="faq wrap">
-          <div className="section-intro">
+          <ScrollReveal className="section-intro">
             <span className="section-eyebrow">Questions, answered</span>
             <h2>Good to know.</h2>
-          </div>
-          <div className="faq-list">
+          </ScrollReveal>
+          <ScrollReveal className="faq-list" delay={0.08} distance={20}>
             {[
               ['Is SoftSpend free?', 'Yes. Free includes unlimited Dashboard, Budgets, and Transactions.'],
               ['What does Pro include?', 'Pro unlocks Household sharing, Excel import, Reports, Goals, and advanced Analytics.'],
@@ -369,7 +396,7 @@ function Landing({ onEnter }: { onEnter: () => void }) {
                 <p>{answer}</p>
               </details>
             ))}
-          </div>
+          </ScrollReveal>
         </section>
       </main>
       <footer className="footer">

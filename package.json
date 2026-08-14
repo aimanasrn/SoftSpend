@@ -13,6 +13,8 @@
     "@vitejs/plugin-react": "latest",
     "date-fns": "latest",
     "lucide-react": "latest",
+    "motion": "^12.43.0",
+    "ogl": "^1.0.11",
     "react": "latest",
     "react-dom": "latest",
     "react-hook-form": "latest",
